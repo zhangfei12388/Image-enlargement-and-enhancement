@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Image Enlargement & Enhancement</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; }
+    .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    .upload-zone { transition: all 0.3s ease; }
+    .upload-zone:hover { border-color: #667eea; background: #f8fafc; }
+    .upload-zone.dragging { border-color: #667eea; background: #eff6ff; }
+  </style>
+</head>
+<body class="min-h-screen bg-gray-50">
+  <div id="app" class="min-h-screen flex flex-col">
+    <!-- Header -->
+    <header class="gradient-bg text-white py-6 shadow-lg">
+      <div class="max-w-4xl mx-auto px-4">
+        <h1 class="text-2xl font-bold">🤖 AI Image Enlargement & Enhancement</h1>
+        <p class="text-sm opacity-80 mt-1">Powered by Cloudflare Workers AI — Real-ESRGAN</p>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 max-w-4xl mx-auto px-4 py-8 w-full">
+      <!-- Upload Zone -->
+      <div id="uploadZone" class="upload-zone border-2 border-dashed border-gray-300 rounded-xl p-12 text-center cursor-pointer bg-white">
+        <input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp" class="hidden">
+        <div class="text-5xl mb-4">📤</div>
+        <h2 class="text-xl font-semibold text-gray-700 mb-2">Drop your image here</h2>
+        <p class="text-gray-500">or click to browse — JPG, PNG, WebP up to 10MB</p>
+      </div>
+
+      <!-- Controls (hidden until image uploaded) -->
+      <div id="controls" class="hidden mt-6 space-y-6">
+        <!-- Preview -->
+        <div class="bg-white rounded-xl shadow-sm p-6">
+          <h3 class="text-lg font-semibold text-gray-700 mb-4">Original Image</h3>
+          <div class="bg-gray-100 rounded-lg p-4 flex items-center justify-center">
+            <img id="preview" class="max-w-full max-h-80 object-contain" alt="Preview">
+          </div>
+        </div>
+
+        <!-- Settings -->
+        <div class="bg-white rounded-xl shadow-sm p-6">
+          <div class="p-4 bg-blue-50 border border-blue-200 rounded-lg mb-6">
+            <p class="text-blue-700 text-sm">
+              ✨ <strong>AI-Powered Enhancement:</strong> Uses Cloudflare Workers AI 
+              with Real-ESRGAN model for high-quality image upscaling.
+            </p>
+          </div>
+
+          <!-- Scale Selection -->
+          <div class="mb-6">
+            <label class="block text-sm font-medium text-gray-700 mb-3">Upscale Factor</label>
+            <div class="flex gap-6">
+              <label class="flex items-center cursor-pointer">
+                <input type="radio" name="scale" value="2" checked class="w-4 h-4 text-blue-600">
+                <span class="ml-2 text-gray-700">2x — 1080p → 2K</span>
+              </label>
+              <label class="flex items-center cursor-pointer">
+                <input type="radio" name="scale" value="4" class="w-4 h-4 text-blue-600">
+                <span class="ml-2 text-gray-700">4x — 720p → 4K</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="flex gap-4">
+            <button id="processBtn" class="flex-1 py-3 px-6 rounded-lg font-medium text-white gradient-bg hover:opacity-90 transition-opacity">
+              🚀 Start AI Enhancement
+            </button>
+            <button id="cancelBtn" class="py-3 px-6 rounded-lg font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors">
+              Cancel
+            </button>
+          </div>
+
+          <!-- Progress -->
+          <div id="progressContainer" class="hidden mt-4">
+            <div class="h-3 bg-gray-200 rounded-full overflow-hidden">
+              <div id="progressBar" class="h-full gradient-bg transition-all duration-300" style="width: 0%"></div>
+            </div>
+            <p id="statusText" class="text-sm text-gray-500 mt-2">Initializing...</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Results (hidden until processing complete) -->
+      <div id="results" class="hidden mt-6 space-y-6">
+        <div class="bg-white rounded-xl shadow-sm p-6">
+          <h3 class="text-lg font-semibold text-gray-700 mb-4">🎉 AI Enhancement Complete!</h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <p class="text-sm text-gray-500 mb-2">Original</p>
+              <div class="rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center">
+                <img id="originalResult" class="max-w-full object-contain" alt="Original">
+              </div>
+            </div>
+            <div>
+              <p class="text-sm text-gray-500 mb-2">✨ AI Enhanced</p>
+              <div class="rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center">
+                <img id="enhancedResult" class="max-w-full object-contain" alt="Enhanced">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm p-6">
+          <div class="flex gap-4">
+            <button id="downloadBtn" class="flex-1 py-3 px-6 rounded-lg font-medium text-white bg-green-600 hover:bg-green-700 transition-colors">
+              📥 Download Enhanced Image
+            </button>
+            <button id="resetBtn" class="py-3 px-6 rounded-lg font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors">
+              Process Another
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Error Message -->
+      <div id="errorContainer" class="hidden mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+        <p id="errorText" class="text-red-600 text-sm"></p>
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="text-center text-sm text-gray-400 py-6">
+      <p>🤖 AI processing powered by Cloudflare Workers AI | Real-ESRGAN Model</p>
+    </footer>
+  </div>
+
+  <script>
+    // API endpoint
+    const API_URL = 'https://image-enhancement-worker.feiz45607.workers.dev';
+
+    // DOM elements
+    const app = document.getElementById('app');
+    const uploadZone = document.getElementById('uploadZone');
+    const fileInput = document.getElementById('fileInput');
+    const controls = document.getElementById('controls');
+    const preview = document.getElementById('preview');
+    const results = document.getElementById('results');
+    const progressContainer = document.getElementById('progressContainer');
+    const progressBar = document.getElementById('progressBar');
+    const statusText = document.getElementById('statusText');
+    const errorContainer = document.getElementById('errorContainer');
+    const errorText = document.getElementById('errorText');
+    const originalResult = document.getElementById('originalResult');
+    const enhancedResult = document.getElementById('enhancedResult');
+
+    let currentFile = null;
+    let enhancedDataUrl = null;
+
+    // Event listeners
+    uploadZone.addEventListener('click', () => fileInput.click());
+    uploadZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      uploadZone.classList.add('dragging');
+    });
+    uploadZone.addEventListener('dragleave', () => {
+      uploadZone.classList.remove('dragging');
+    });
+    uploadZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      uploadZone.classList.remove('dragging');
+      const file = e.dataTransfer.files[0];
+      if (file) handleFile(file);
+    });
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) handleFile(file);
+    });
+
+    document.getElementById('processBtn').addEventListener('click', processImage);
+    document.getElementById('cancelBtn').addEventListener('click', reset);
+    document.getElementById('downloadBtn').addEventListener('click', downloadImage);
+    document.getElementById('resetBtn').addEventListener('click', reset);
+
+    function handleFile(file) {
+      // Validate
+      if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+        showError('Please upload a JPG, PNG, or WebP image.');
+        return;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        showError('File size must be less than 10MB.');
+        return;
+      }
+
+      hideError();
+      currentFile = file;
+
+      // Preview
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        preview.src = e.target.result;
+        controls.classList.remove('hidden');
+        results.classList.add('hidden');
+      };
+      reader.readAsDataURL(file);
+    }
+
+    async function processImage() {
+      if (!currentFile) return;
+
+      const scale = document.querySelector('input[name="scale"]:checked').value;
+      
+      showProgress(0, 'Converting image...');
+      document.getElementById('processBtn').disabled = true;
+
+      try {
+        showProgress(20, 'Sending to Cloudflare Workers AI...');
+
+        const formData = new FormData();
+        formData.append('image', currentFile);
+        formData.append('scale', scale);
+
+        showProgress(40, 'AI is upscaling and enhancing...');
+
+        const response = await fetch(API_URL, {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || 'AI processing failed');
+        }
+
+        showProgress(80, 'Processing complete!');
+        const data = await response.json();
+
+        // Handle base64 response
+        let imageData = data.image;
+        if (imageData && !imageData.startsWith('data:')) {
+          imageData = `data:image/png;base64,${imageData}`;
+        }
+
+        enhancedDataUrl = imageData;
+        showProgress(100, 'Done!');
+
+        // Show results
+        originalResult.src = preview.src;
+        enhancedResult.src = enhancedDataUrl;
+        controls.classList.add('hidden');
+        results.classList.remove('hidden');
+
+      } catch (err) {
+        showError(err.message);
+        hideProgress();
+      }
+
+      document.getElementById('processBtn').disabled = false;
+    }
+
+    function downloadImage() {
+      if (!enhancedDataUrl) return;
+      const link = document.createElement('a');
+      link.href = enhancedDataUrl;
+      link.download = 'ai-enhanced.png';
+      link.click();
+    }
+
+    function reset() {
+      currentFile = null;
+      enhancedDataUrl = null;
+      fileInput.value = '';
+      controls.classList.add('hidden');
+      results.classList.add('hidden');
+      hideError();
+      hideProgress();
+    }
+
+    function showProgress(percent, message) {
+      progressContainer.classList.remove('hidden');
+      progressBar.style.width = percent + '%';
+      statusText.textContent = `${percent}% — ${message}`;
+    }
+
+    function hideProgress() {
+      progressContainer.classList.add('hidden');
+    }
+
+    function showError(message) {
+      errorContainer.classList.remove('hidden');
+      errorText.textContent = message;
+    }
+
+    function hideError() {
+      errorContainer.classList.add('hidden');
+    }
+  </script>
+</body>
+</html>
