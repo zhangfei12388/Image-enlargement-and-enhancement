@@ -1,13 +1,3 @@
----
-name: Image Enhancement Worker
-runtime: jsgeneric
-main: src/worker.ts
-compatibility_date: 2025-01-01
-
-ai:
-  binding: AI
-'''
-
 export interface Env {
   AI: Ai;
 }
@@ -53,7 +43,7 @@ export default {
       const dataUrl = `data:${mimeType};base64,${base64Image}`;
 
       // Prepare the AI prompt with scale factor
-      const prompt = ` upscale by ${scale}x, enhance details, improve quality, high quality, sharp, clear`;
+      const prompt = `upscale by ${scale}x, enhance details, improve quality, high quality, sharp, clear`;
 
       // Call Cloudflare Workers AI Real-ESRGAN model
       const result = await env.AI.run("@cf/unum/uform-gen2-q4", {
