@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
-import Image from "next/image";
 
 type EnhancementType = "denoise" | "sharpen" | "color";
 
@@ -9,14 +8,13 @@ export default function Home() {
   const [image, setImage] = useState<string | null>(null);
   const [processedImage, setProcessedImage] = useState<string | null>(null);
   const [scale, setScale] = useState<2 | 4>(2);
-  const [enhancements, setEnhancements] = useState<EnhancementType[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [showComparison, setShowComparison] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -64,101 +62,73 @@ export default function Home() {
     reader.readAsDataURL(file);
   };
 
-  const toggleEnhancement = (type: EnhancementType) => {
-    setEnhancements((prev) =>
-      prev.includes(type)
-        ? prev.filter((t) => t !== type)
-        : [...prev, type]
-    );
-  };
-
   const processImage = async () => {
-    if (!image || !canvasRef.current) return;
+    if (!image) return;
 
     setIsProcessing(true);
     setProgress(0);
     setError(null);
+    setStatusMessage("Initializing AI processing...");
 
     try {
-      const canvas = canvasRef.current;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) throw new Error("Canvas context not available");
-
-      // Load image
       setProgress(10);
-      const img = new window.Image();
-      img.src = image;
-      await new Promise((resolve) => {
-        img.onload = resolve;
+      setStatusMessage("Converting image...");
+
+      // Convert base64 to blob
+      const response = await fetch(image);
+      const blob = await response.blob();
+      const file = new File([blob], "image.png", { type: "image/png" });
+
+      setProgress(20);
+      setStatusMessage("Sending to Cloudflare Workers AI...");
+
+      // Call the Cloudflare Worker API
+      const formData = new FormData();
+      formData.append("image", file);
+      formData.append("scale", scale.toString());
+
+      setProgress(40);
+      setStatusMessage("AI is upscaling and enhancing...");
+
+      const apiUrl = "https://image-enhancement-worker.feiz45607-email.pages.dev/api/enhance";
+      const result = await fetch(apiUrl, {
+        method: "POST",
+        body: formData,
       });
 
-      // Calculate new dimensions
-      const newWidth = img.width * scale;
-      const newHeight = img.height * scale;
+      setProgress(80);
 
-      // Check for memory issues (max 8192px)
-      if (newWidth > 8192 || newHeight > 8192) {
-        throw new Error("Image too large after upscaling. Please use a smaller image.");
+      if (!result.ok) {
+        const errorData = await result.json();
+        throw new Error(errorData.error || "AI processing failed");
       }
 
-      canvas.width = newWidth;
-      canvas.height = newHeight;
-
-      setProgress(30);
-
-      // Draw scaled image
-      ctx.drawImage(img, 0, 0, newWidth, newHeight);
-
-      setProgress(50);
-
-      // Apply enhancements
-      const imageData = ctx.getImageData(0, 0, newWidth, newHeight);
-      const data = imageData.data;
-
-      if (enhancements.includes("denoise")) {
-        // Simple denoise using blur simulation
-        const tempCanvas = document.createElement("canvas");
-        tempCanvas.width = newWidth;
-        tempCanvas.height = newHeight;
-        const tempCtx = tempCanvas.getContext("2d")!;
-        tempCtx.filter = "blur(1px)";
-        tempCtx.drawImage(canvas, 0, 0);
-        ctx.filter = "none";
-        ctx.globalAlpha = 0.5;
-        ctx.drawImage(tempCanvas, 0, 0);
-        ctx.globalAlpha = 1;
-      }
-
-      setProgress(70);
-
-      if (enhancements.includes("sharpen")) {
-        // Simple sharpening using contrast adjustment
-        ctx.filter = "contrast(1.2)";
-        ctx.drawImage(canvas, 0, 0);
-        ctx.filter = "none";
-      }
-
-      setProgress(85);
-
-      if (enhancements.includes("color")) {
-        // Color enhancement using saturation
-        ctx.filter = "saturate(1.3)";
-        ctx.drawImage(canvas, 0, 0);
-        ctx.filter = "none";
-      }
+      const data = await result.json();
 
       setProgress(95);
+      setStatusMessage("Processing complete!");
 
-      // Get processed image
-      const processed = canvas.toDataURL("image/png", 1.0);
-      setProcessedImage(processed);
+      // The API returns base64 image data
+      let imageData = data.image;
+      
+      // Handle case where image is returned as base64 without data URL prefix
+      if (imageData && !imageData.startsWith("data:")) {
+        imageData = `data:image/png;base64,${imageData}`;
+      }
+
+      setProcessedImage(imageData);
       setShowComparison(true);
-
       setProgress(100);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Processing failed. Please try again.");
+      console.error("Processing error:", err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "AI processing failed. Please try again."
+      );
     } finally {
       setIsProcessing(false);
+      setStatusMessage("");
     }
   };
 
@@ -167,7 +137,7 @@ export default function Home() {
 
     const link = document.createElement("a");
     link.href = processedImage;
-    link.download = `enhanced-${scale}x.png`;
+    link.download = `ai-enhanced-${scale}x.png`;
     link.click();
   };
 
@@ -175,8 +145,8 @@ export default function Home() {
     setImage(null);
     setProcessedImage(null);
     setShowComparison(false);
-    setEnhancements([]);
     setError(null);
+    setStatusMessage("");
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -186,10 +156,10 @@ export default function Home() {
       <header className="bg-white shadow-sm">
         <div className="max-w-4xl mx-auto px-4 py-6">
           <h1 className="text-2xl font-bold text-gray-900">
-            Image Enlargement & Enhancement
+            🤖 AI Image Enlargement & Enhancement
           </h1>
           <p className="text-gray-500 text-sm mt-1">
-            AI-powered image enhancement in your browser
+            Powered by Cloudflare Workers AI — Real-ESRGAN Model
           </p>
         </div>
       </header>
@@ -232,6 +202,9 @@ export default function Home() {
         {error && (
           <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
             <p className="text-red-600 text-sm">{error}</p>
+            <p className="text-red-400 text-xs mt-1">
+              💡 Tip: Make sure the AI Worker is deployed first.
+            </p>
           </div>
         )}
 
@@ -252,6 +225,14 @@ export default function Home() {
 
             {/* Controls */}
             <div className="bg-white rounded-xl shadow-sm p-6">
+              {/* AI Notice */}
+              <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-blue-700 text-sm">
+                  ✨ <strong>AI-Powered Enhancement:</strong> Uses Cloudflare Workers AI 
+                  with Real-ESRGAN model for high-quality image upscaling and detail enhancement.
+                </p>
+              </div>
+
               {/* Scale Selection */}
               <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-700 mb-3">
@@ -266,7 +247,7 @@ export default function Home() {
                       onChange={() => setScale(2)}
                       className="w-4 h-4 text-blue-600"
                     />
-                    <span className="ml-2 text-gray-700">2x</span>
+                    <span className="ml-2 text-gray-700">2x — 1080p → 2K</span>
                   </label>
                   <label className="flex items-center cursor-pointer">
                     <input
@@ -276,39 +257,8 @@ export default function Home() {
                       onChange={() => setScale(4)}
                       className="w-4 h-4 text-blue-600"
                     />
-                    <span className="ml-2 text-gray-700">4x</span>
+                    <span className="ml-2 text-gray-700">4x — 720p → 4K</span>
                   </label>
-                </div>
-              </div>
-
-              {/* Enhancement Selection */}
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-3">
-                  Enhancements
-                </label>
-                <div className="flex flex-wrap gap-4">
-                  {(["denoise", "sharpen", "color"] as EnhancementType[]).map((type) => (
-                    <label
-                      key={type}
-                      className={`
-                        flex items-center px-4 py-2 rounded-lg cursor-pointer transition-colors
-                        ${enhancements.includes(type)
-                          ? "bg-blue-100 text-blue-700 border border-blue-300"
-                          : "bg-gray-50 text-gray-600 border border-gray-200 hover:border-gray-300"
-                        }
-                      `}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={enhancements.includes(type)}
-                        onChange={() => toggleEnhancement(type)}
-                        className="w-4 h-4 text-blue-600 mr-2"
-                      />
-                      {type === "denoise" && "Denoise"}
-                      {type === "sharpen" && "Sharpen"}
-                      {type === "color" && "Color Enhancement"}
-                    </label>
-                  ))}
                 </div>
               </div>
 
@@ -320,12 +270,12 @@ export default function Home() {
                   className={`
                     flex-1 py-3 px-6 rounded-lg font-medium text-white transition-colors
                     ${isProcessing
-                      ? "bg-gray-400 cursor-not-allowed"
-                      : "bg-blue-600 hover:bg-blue-700"
+                      ? "bg-purple-400 cursor-not-allowed"
+                      : "bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
                     }
                   `}
                 >
-                  {isProcessing ? "Processing..." : "Start Processing"}
+                  {isProcessing ? "🤖 AI Processing..." : "🚀 Start AI Enhancement"}
                 </button>
                 <button
                   onClick={reset}
@@ -338,13 +288,15 @@ export default function Home() {
               {/* Progress */}
               {isProcessing && (
                 <div className="mt-4">
-                  <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                  <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-blue-600 transition-all duration-300"
+                      className="h-full bg-gradient-to-r from-purple-600 to-blue-600 transition-all duration-300 animate-pulse"
                       style={{ width: `${progress}%` }}
                     />
                   </div>
-                  <p className="text-sm text-gray-500 mt-2">{progress}% complete</p>
+                  <p className="text-sm text-gray-500 mt-2">
+                    {progress}% — {statusMessage}
+                  </p>
                 </div>
               )}
             </div>
@@ -355,7 +307,9 @@ export default function Home() {
         {showComparison && (
           <div className="space-y-6">
             <div className="bg-white rounded-xl shadow-sm p-6">
-              <h2 className="text-lg font-semibold text-gray-700 mb-4">Before & After</h2>
+              <h2 className="text-lg font-semibold text-gray-700 mb-4">
+                🎉 AI Enhancement Complete!
+              </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm text-gray-500 mb-2">Original</p>
@@ -368,7 +322,9 @@ export default function Home() {
                   </div>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500 mb-2">Enhanced ({scale}x{enhancements.length > 0 && ` + ${enhancements.join(", ")}`})</p>
+                  <p className="text-sm text-gray-500 mb-2">
+                    ✨ AI Enhanced ({scale}x)
+                  </p>
                   <div className="rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center">
                     <img
                       src={processedImage!}
@@ -385,28 +341,25 @@ export default function Home() {
               <div className="flex gap-4">
                 <button
                   onClick={downloadImage}
-                  className="flex-1 py-3 px-6 rounded-lg font-medium text-white bg-green-600 hover:bg-green-700 transition-colors"
+                  className="flex-1 py-3 px-6 rounded-lg font-medium text-white bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 transition-colors"
                 >
-                  Download Enhanced Image
+                  📥 Download Enhanced Image
                 </button>
                 <button
                   onClick={reset}
                   className="py-3 px-6 rounded-lg font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors"
                 >
-                  Start Over
+                  Process Another
                 </button>
               </div>
             </div>
           </div>
         )}
-
-        {/* Hidden Canvas for Processing */}
-        <canvas ref={canvasRef} className="hidden" />
       </main>
 
       {/* Footer */}
       <footer className="mt-12 text-center text-sm text-gray-400">
-        <p>Images are processed locally in your browser. Nothing is uploaded to any server.</p>
+        <p>🤖 AI processing powered by Cloudflare Workers AI | Real-ESRGAN Model</p>
       </footer>
     </div>
   );

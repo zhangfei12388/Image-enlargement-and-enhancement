@@ -1,0 +1,11 @@
+name = "image-enhancement-worker"
+main = "worker.ts"
+compatibility_date = "2024-12-01"
+
+account_id = "83a564d726574071461bc9ea2605d6d1"
+
+[ai]
+binding = "AI"
+
+[observability]
+enabled = true
