@@ -5,3 +5,8 @@ account_id = "83a564d726574071461bc9ea2605d6d1"
 
 [ai]
 binding = "AI"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "image-enhancer-users"
+database_id = "f62033e7-97ce-417f-8e87-cac87db83c02"
