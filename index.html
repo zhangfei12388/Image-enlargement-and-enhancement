@@ -3,578 +3,226 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AI Image Enlargement & Enhancement</title>
+  <title>AI Image Enhancement</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
   <style>
     body { font-family: system-ui, -apple-system, sans-serif; }
     .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    .gradient-text { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
     .upload-zone { transition: all 0.3s ease; }
     .upload-zone:hover { border-color: #667eea; background: #f8fafc; }
-    .upload-zone.dragging { border-color: #667eea; background: #eff6ff; }
-    .spinner {
-      border: 3px solid #f3f3f3;
-      border-top: 3px solid #667eea;
-      border-radius: 50%;
-      width: 24px;
-      height: 24px;
-      animation: spin 1s linear infinite;
-      display: inline-block;
-    }
+    .spinner { border: 3px solid #f3f3f3; border-top: 3px solid #667eea; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; display: inline-block; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-    .login-overlay {
-      backdrop-filter: blur(8px);
-      background: rgba(255, 255, 255, 0.95);
-    }
-    .modal-overlay {
-      backdrop-filter: blur(4px);
-      background: rgba(0, 0, 0, 0.5);
-    }
-    .enhanced-container img {
-      max-width: none !important;
-      width: auto !important;
-      height: auto !important;
-    }
-    .stat-card {
-      background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%);
-    }
+    .login-overlay { backdrop-filter: blur(8px); background: rgba(255, 255, 255, 0.95); }
+    .modal-overlay { backdrop-filter: blur(4px); background: rgba(0, 0, 0, 0.5); }
+    .pro-gradient { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
   </style>
 </head>
 <body class="min-h-screen bg-gray-50">
   <div id="app" class="min-h-screen flex flex-col">
-    <!-- Header -->
-    <header class="gradient-bg text-white py-4 shadow-lg">
+    <header class="gradient-bg text-white py-4 shadow-lg sticky top-0 z-40">
       <div class="max-w-6xl mx-auto px-4 flex items-center justify-between">
-        <div>
-          <h1 class="text-xl font-bold">🤖 AI Image Enhancement</h1>
-          <p class="text-xs opacity-80">Powered by Cloudflare</p>
-        </div>
-        <div id="authSection"></div>
+        <h1 class="text-xl font-bold cursor-pointer" onclick="showPage('home')">🤖 AI Image Enhancement</h1>
+        <nav class="flex items-center gap-4">
+          <button onclick="showPage('pricing')" class="text-sm hover:text-white/80 transition">Pricing</button>
+          <button onclick="showPage('faq')" class="text-sm hover:text-white/80 transition">FAQ</button>
+          <div id="authSection"></div>
+        </nav>
       </div>
     </header>
 
-    <!-- Login Overlay -->
     <div id="loginOverlay" class="login-overlay fixed inset-0 flex items-center justify-center z-50">
       <div class="text-center p-8 max-w-md">
         <div class="text-6xl mb-6">🔐</div>
         <h2 class="text-2xl font-bold text-gray-800 mb-4">Sign in to Continue</h2>
-        <p class="text-gray-600 mb-8">Sign in to access image enhancement and track your usage.</p>
-        <button id="googleLoginBtn" class="w-full py-3 px-6 rounded-lg font-medium bg-white border border-gray-200 hover:bg-gray-50 flex items-center justify-center gap-3 shadow-sm">
-          <svg class="w-5 h-5" viewBox="0 0 24 24">
-            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-          </svg>
+        <p class="text-gray-600 mb-8">Sign in to access image enhancement</p>
+        <button id="googleLoginBtn" class="w-full py-3 px-6 rounded-lg font-medium bg-white border shadow-sm flex items-center justify-center gap-3">
+          <svg class="w-5 h-5" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
           Sign in with Google
         </button>
         <p id="loginError" class="hidden text-red-500 text-sm mt-4"></p>
       </div>
     </div>
 
-    <!-- Profile Modal -->
+    <div id="quotaModal" class="hidden fixed inset-0 modal-overlay flex items-center justify-center z-50 p-4">
+      <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 text-center">
+        <div class="text-5xl mb-4">⚠️</div>
+        <h3 class="text-xl font-bold mb-2">Daily Quota Exhausted</h3>
+        <p class="text-gray-600 mb-6">Upgrade to Pro for unlimited access!</p>
+        <button onclick="closeQuotaModal(); showPage('pricing');" class="w-full py-3 rounded-lg font-medium text-white pro-gradient">🚀 Upgrade to Pro</button>
+        <button onclick="closeQuotaModal()" class="w-full py-2 mt-2 text-gray-500 text-sm">Maybe Later</button>
+      </div>
+    </div>
+
     <div id="profileModal" class="hidden fixed inset-0 modal-overlay flex items-center justify-center z-50 p-4">
       <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-hidden">
-        <div class="gradient-bg p-6 text-white">
-          <div class="flex items-center justify-between">
-            <h2 class="text-xl font-bold">👤 My Profile</h2>
-            <button id="closeProfileBtn" class="text-white/80 hover:text-white text-2xl">&times;</button>
-          </div>
+        <div class="gradient-bg p-6 text-white flex justify-between items-center">
+          <h2 class="text-xl font-bold">👤 My Profile</h2>
+          <button onclick="closeProfile()" class="text-2xl">&times;</button>
         </div>
-        
         <div class="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
-          <!-- User Info -->
-          <div id="profileContent">
-            <div class="flex items-center gap-4 mb-6 p-4 bg-gray-50 rounded-xl">
-              <img id="profileAvatar" src="" alt="" class="w-16 h-16 rounded-full border-2 border-purple-200">
-              <div>
-                <h3 id="profileName" class="text-lg font-bold text-gray-800">-</h3>
-                <p id="profileEmail" class="text-sm text-gray-500">-</p>
-              </div>
-            </div>
-
-            <!-- Stats Grid -->
-            <div class="grid grid-cols-2 gap-4 mb-6">
-              <div class="stat-card p-4 rounded-xl text-center">
-                <p class="text-3xl font-bold text-purple-600" id="statTotal">0</p>
-                <p class="text-xs text-gray-500 mt-1">Total Uses</p>
-              </div>
-              <div class="stat-card p-4 rounded-xl text-center">
-                <p class="text-3xl font-bold text-purple-600" id="statToday">0</p>
-                <p class="text-xs text-gray-500 mt-1">Today</p>
-              </div>
-              <div class="stat-card p-4 rounded-xl text-center">
-                <p class="text-3xl font-bold text-purple-600" id="statWeek">0</p>
-                <p class="text-xs text-gray-500 mt-1">This Week</p>
-              </div>
-              <div class="stat-card p-4 rounded-xl text-center">
-                <p class="text-3xl font-bold text-green-600" id="statSaved">0%</p>
-                <p class="text-xs text-gray-500 mt-1">Storage Saved</p>
-              </div>
-            </div>
-
-            <!-- History -->
+          <div class="flex items-center gap-4 mb-6 p-4 bg-gray-50 rounded-xl">
+            <img id="profileAvatar" src="" class="w-16 h-16 rounded-full border-2 border-purple-200">
             <div>
-              <h4 class="font-semibold text-gray-700 mb-3">📋 Recent History</h4>
-              <div id="historyList" class="space-y-2">
-                <div class="text-center py-8 text-gray-400">
-                  <span class="spinner inline-block mb-2"></span>
-                  <p class="text-sm">Loading...</p>
-                </div>
-              </div>
+              <h3 id="profileName" class="text-lg font-bold">-</h3>
+              <p id="profileEmail" class="text-sm text-gray-500">-</p>
+              <span id="profilePlan" class="inline-block mt-1 px-2 py-0.5 bg-purple-100 text-purple-700 rounded text-xs">Free</span>
             </div>
           </div>
+          <div id="quotaDisplay" class="mb-6 p-4 bg-purple-50 rounded-xl">
+            <h4 class="font-semibold mb-3">📊 Today's Quota</h4>
+            <div class="grid grid-cols-2 gap-3">
+              <div class="text-center p-3 bg-white rounded-lg"><p class="text-2xl font-bold text-purple-600" id="quota2x">10</p><p class="text-xs text-gray-500">2x Left</p></div>
+              <div class="text-center p-3 bg-white rounded-lg"><p class="text-2xl font-bold text-blue-600" id="quota4x">3</p><p class="text-xs text-gray-500">4x Left</p></div>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-4 mb-6">
+            <div class="p-4 bg-purple-50 rounded-xl text-center"><p class="text-2xl font-bold text-purple-600" id="statTotal">0</p><p class="text-xs text-gray-500">Total Uses</p></div>
+            <div class="p-4 bg-purple-50 rounded-xl text-center"><p class="text-2xl font-bold text-purple-600" id="statWeek">0</p><p class="text-xs text-gray-500">This Week</p></div>
+          </div>
+          <div>
+            <h4 class="font-semibold mb-3">📋 Recent History</h4>
+            <div id="historyList" class="space-y-2 max-h-48 overflow-y-auto"></div>
+          </div>
         </div>
-
-        <div class="p-4 border-t">
-          <button id="logoutFromProfileBtn" class="w-full py-3 px-4 rounded-lg font-medium text-red-600 bg-red-50 hover:bg-red-100 transition-colors text-sm">
-            🚪 Sign Out
-          </button>
+        <div class="p-4 border-t flex gap-2">
+          <button onclick="showPage('pricing')" class="flex-1 py-2 rounded-lg font-medium text-white pro-gradient">⬆️ Upgrade</button>
+          <button onclick="signOut()" class="py-2 px-4 rounded-lg font-medium text-red-600 bg-red-50">🚪</button>
         </div>
       </div>
     </div>
 
-    <!-- Main Content -->
-    <main id="mainContent" class="flex-1 mx-auto px-4 py-8 w-full max-w-4xl hidden">
+    <main id="mainContent" class="flex-1 mx-auto px-4 py-8 w-full max-w-4xl">
       <div id="uploadZone" class="upload-zone border-2 border-dashed border-gray-300 rounded-xl p-12 text-center cursor-pointer bg-white">
         <input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp" class="hidden">
         <div class="text-5xl mb-4">📤</div>
         <h2 class="text-xl font-semibold text-gray-700 mb-2">Drop your image here</h2>
-        <p class="text-gray-500">or click to browse — JPG, PNG, WebP up to 10MB</p>
+        <p class="text-gray-500">JPG, PNG, WebP up to 10MB</p>
       </div>
-
       <div id="controls" class="hidden mt-6 space-y-6">
         <div class="bg-white rounded-xl shadow-sm p-6">
-          <div class="flex items-center justify-between mb-4">
-            <h3 class="text-lg font-semibold text-gray-700">Original Image</h3>
-            <span id="originalSizeLabel" class="text-sm text-gray-500">-</span>
-          </div>
-          <div class="bg-gray-100 rounded-lg p-4 flex items-center justify-center overflow-auto">
-            <img id="preview" class="max-w-full object-contain" alt="Preview">
-          </div>
+          <div class="flex justify-between mb-4"><h3 class="text-lg font-semibold">Original Image</h3><span id="originalSizeLabel" class="text-gray-500">-</span></div>
+          <div class="bg-gray-100 rounded-lg p-4 flex justify-center"><img id="preview" class="max-w-full" alt="Preview"></div>
         </div>
-
         <div class="bg-white rounded-xl shadow-sm p-6">
-          <div class="p-4 bg-purple-50 border border-purple-200 rounded-lg mb-6">
-            <p class="text-purple-700 text-sm">
-              ✨ <strong>Image Enhancement:</strong> High-quality interpolation upscaling
-            </p>
-          </div>
-
           <div class="mb-6">
-            <label class="block text-sm font-medium text-gray-700 mb-3">Upscale Factor</label>
-            <div class="flex flex-wrap gap-4">
-              <label class="flex items-center cursor-pointer px-6 py-3 rounded-lg border-2 transition-all bg-gray-50" id="scale2-label">
-                <input type="radio" name="scale" value="2" checked class="w-4 h-4 text-purple-600">
-                <span class="ml-2 text-gray-700 font-medium">2x</span>
-              </label>
-              <label class="flex items-center cursor-pointer px-6 py-3 rounded-lg border-2 transition-all bg-gray-50" id="scale4-label">
-                <input type="radio" name="scale" value="4" class="w-4 h-4 text-purple-600">
-                <span class="ml-2 text-gray-700 font-medium">4x</span>
-              </label>
+            <label class="block text-sm font-medium mb-3">Upscale Factor</label>
+            <div class="flex gap-4">
+              <label class="flex items-center px-6 py-3 rounded-lg border-2 cursor-pointer bg-gray-50" id="scale2-label"><input type="radio" name="scale" value="2" checked class="mr-2">2x</label>
+              <label class="flex items-center px-6 py-3 rounded-lg border-2 cursor-pointer bg-gray-50" id="scale4-label"><input type="radio" name="scale" value="4" class="mr-2">4x</label>
             </div>
           </div>
-
           <div class="flex gap-4">
-            <button id="processBtn" class="flex-1 py-3 px-6 rounded-lg font-medium text-white gradient-bg hover:opacity-90 transition-opacity">
-              🚀 Start Enhancement
-            </button>
-            <button id="cancelBtn" class="py-3 px-6 rounded-lg font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors">
-              Cancel
-            </button>
+            <button id="processBtn" class="flex-1 py-3 rounded-lg font-medium text-white gradient-bg">🚀 Start</button>
+            <button onclick="reset()" class="py-3 px-6 rounded-lg bg-gray-100">Cancel</button>
           </div>
-
           <div id="progressContainer" class="hidden mt-4">
-            <div class="h-3 bg-gray-200 rounded-full overflow-hidden">
-              <div id="progressBar" class="h-full gradient-bg transition-all duration-300" style="width: 0%"></div>
-            </div>
-            <p id="statusText" class="text-sm text-gray-500 mt-2">Initializing...</p>
+            <div class="h-3 bg-gray-200 rounded-full overflow-hidden"><div id="progressBar" class="h-full gradient-bg transition-all" style="width:0%"></div></div>
+            <p id="statusText" class="text-sm text-gray-500 mt-2">-</p>
           </div>
         </div>
       </div>
-
-      <!-- Results Section -->
       <div id="results" class="hidden mt-6 space-y-6">
         <div class="bg-white rounded-xl shadow-sm p-6">
-          <h3 class="text-lg font-semibold text-gray-700 mb-4">🎉 Enhancement Complete!</h3>
-          
-          <div class="mb-6 p-4 bg-gradient-to-r from-gray-50 to-purple-50 rounded-xl border border-gray-200">
-            <div class="flex items-center justify-center gap-6 flex-wrap">
-              <div class="text-center">
-                <p class="text-xs text-gray-500 uppercase tracking-wide">Original</p>
-                <p id="resultOriginalSize" class="text-lg font-bold text-gray-600">-</p>
-              </div>
-              <div class="text-2xl text-purple-400">→</div>
-              <div class="text-center">
-                <p class="text-xs text-gray-500 uppercase tracking-wide">Enhanced</p>
-                <p id="resultEnhancedSize" class="text-lg font-bold text-purple-600">-</p>
-              </div>
-              <span class="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-medium" id="scaleBadge">2x</span>
-            </div>
+          <h3 class="text-lg font-semibold mb-4">🎉 Complete!</h3>
+          <div class="mb-4 p-4 bg-purple-50 rounded-lg flex justify-center gap-6 items-center">
+            <div class="text-center"><p class="text-xs text-gray-500">Original</p><p id="resultOriginalSize" class="font-bold">-</p></div>
+            <span class="text-2xl">→</span>
+            <div class="text-center"><p class="text-xs text-gray-500">Enhanced</p><p id="resultEnhancedSize" class="font-bold text-purple-600">-</p></div>
+            <span id="scaleBadge" class="px-3 py-1 bg-purple-100 rounded-full text-sm">2x</span>
           </div>
-
-          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div>
-              <p class="text-sm font-medium text-gray-500 mb-2">📷 Original</p>
-              <div class="rounded-lg bg-gray-100 p-4 flex items-center justify-center min-h-48">
-                <img id="originalResult" class="max-w-full object-contain" alt="Original">
-              </div>
-            </div>
-            <div class="enhanced-container">
-              <p class="text-sm font-medium text-purple-600 mb-2">✨ Enhanced</p>
-              <div class="rounded-lg bg-purple-50 p-4 flex items-center justify-center min-h-48 border-2 border-purple-200">
-                <img id="enhancedResult" class="object-contain" alt="Enhanced">
-              </div>
-            </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div><p class="text-sm text-gray-500 mb-2">📷 Original</p><div class="bg-gray-100 rounded-lg p-4 flex justify-center"><img id="originalResult" class="max-w-full" alt=""></div></div>
+            <div><p class="text-sm text-purple-600 mb-2">✨ Enhanced</p><div class="bg-purple-50 rounded-lg p-4 flex justify-center border-2 border-purple-200"><img id="enhancedResult" class="object-contain" alt=""></div></div>
           </div>
         </div>
-
-        <div class="bg-white rounded-xl shadow-sm p-6">
-          <div class="flex gap-4">
-            <button id="downloadBtn" class="flex-1 py-3 px-6 rounded-lg font-medium text-white bg-green-600 hover:bg-green-700 transition-colors">
-              📥 Download
-            </button>
-            <button id="resetBtn" class="py-3 px-6 rounded-lg font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors">
-              🔄 More
-            </button>
-          </div>
+        <div class="bg-white rounded-xl shadow-sm p-6 flex gap-4">
+          <button id="downloadBtn" class="flex-1 py-3 rounded-lg font-medium text-white bg-green-600">📥 Download</button>
+          <button onclick="reset()" class="py-3 px-6 rounded-lg bg-gray-100">🔄 More</button>
         </div>
       </div>
-
-      <div id="errorContainer" class="hidden mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-        <p id="errorText" class="text-red-600 text-sm"></p>
-      </div>
+      <div id="errorContainer" class="hidden mt-4 p-4 bg-red-50 rounded-lg"><p id="errorText" class="text-red-600 text-sm"></p></div>
     </main>
 
-    <footer class="text-center text-sm text-gray-400 py-6">
-      <p>🤖 Powered by Cloudflare Workers + Firebase Auth</p>
-    </footer>
+    <div id="pricingPage" class="hidden flex-1 py-12 px-4">
+      <div class="max-w-4xl mx-auto text-center mb-12">
+        <h2 class="text-3xl font-bold mb-4">Simple Pricing</h2>
+        <div class="grid md:grid-cols-2 gap-8 max-w-3xl mx-auto">
+          <div class="bg-white rounded-2xl shadow-lg p-8 border-2 border-gray-200">
+            <h3 class="text-2xl font-bold">Free</h3>
+            <p class="text-4xl font-bold mt-4">$0</p>
+            <p class="text-gray-500">forever</p>
+            <ul class="text-left mt-6 space-y-2">
+              <li>✓ 10 x 2x daily</li><li>✓ 3 x 4x daily</li><li>✓ Dashboard</li><li>✓ History</li>
+            </ul>
+            <button onclick="showPage('home')" class="w-full mt-6 py-3 border-2 rounded-lg">Current Plan</button>
+          </div>
+          <div class="bg-white rounded-2xl shadow-xl p-8 border-2 border-purple-500 relative">
+            <div class="absolute -top-3 left-1/2 -translate-x-1/2 bg-purple-500 text-white px-4 py-1 rounded-full text-sm">POPULAR</div>
+            <h3 class="text-2xl font-bold gradient-text">Pro</h3>
+            <p class="text-4xl font-bold mt-4">$9.9<span class="text-lg text-gray-500">/mo</span></p>
+            <ul class="text-left mt-6 space-y-2">
+              <li>✓ <strong>Unlimited</strong> 2x</li><li>✓ <strong>Unlimited</strong> 4x</li><li>✓ Dashboard</li><li>✓ Priority</li><li>✓ Cancel anytime</li>
+            </ul>
+            <button id="upgradeBtn" class="w-full mt-6 py-3 rounded-lg font-medium text-white pro-gradient">⬆️ Upgrade to Pro</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="faqPage" class="hidden flex-1 py-12 px-4">
+      <div class="max-w-3xl mx-auto">
+        <div class="text-center mb-12">
+          <h2 class="text-3xl font-bold mb-4">FAQ</h2>
+        </div>
+        <div class="space-y-4" id="faqList"></div>
+      </div>
+    </div>
+
+    <footer class="text-center text-sm text-gray-400 py-6">🤖 Powered by Cloudflare</footer>
   </div>
 
   <script>
-    // Firebase Configuration
-    const firebaseConfig = {
-      apiKey: "AIzaSyCu0oQiU0PagS5ujK-cp0k1Olp6pldgT8Q",
-      authDomain: "image-enhancer-auth-1c566.firebaseapp.com",
-      projectId: "image-enhancer-auth-1c566",
-      storageBucket: "image-enhancer-auth-1c566.firebasestorage.app",
-      messagingSenderId: "295581624927",
-      appId: "1:295581624927:web:467dfb1b27462a73f049ea"
-    };
-
+    const firebaseConfig={apiKey:"AIzaSyCu0oQiU0PagS5ujK-cp0k1Olp6pldgT8Q",authDomain:"image-enhancer-auth-1c566.firebaseapp.com",projectId:"image-enhancer-auth-1c566",storageBucket:"image-enhancer-auth-1c566.firebasestorage.app",messagingSenderId:"295581624927",appId:"1:295581624927:web:467dfb1b27462a73f049ea"};
     firebase.initializeApp(firebaseConfig);
-    const auth = firebase.auth();
-
-    const WORKER_URL = 'https://image-enhancement-worker.feiz45607.workers.dev';
-
-    // DOM Elements
-    const loginOverlay = document.getElementById('loginOverlay');
-    const profileModal = document.getElementById('profileModal');
-    const mainContent = document.getElementById('mainContent');
-    const authSection = document.getElementById('authSection');
-    const googleLoginBtn = document.getElementById('googleLoginBtn');
-    const loginError = document.getElementById('loginError');
-    const uploadZone = document.getElementById('uploadZone');
-    const fileInput = document.getElementById('fileInput');
-    const controls = document.getElementById('controls');
-    const preview = document.getElementById('preview');
-    const results = document.getElementById('results');
-    const progressContainer = document.getElementById('progressContainer');
-    const progressBar = document.getElementById('progressBar');
-    const statusText = document.getElementById('statusText');
-    const errorContainer = document.getElementById('errorContainer');
-    const errorText = document.getElementById('errorText');
-    const originalResult = document.getElementById('originalResult');
-    const enhancedResult = document.getElementById('enhancedResult');
-    const originalSizeLabel = document.getElementById('originalSizeLabel');
-    const resultOriginalSize = document.getElementById('resultOriginalSize');
-    const resultEnhancedSize = document.getElementById('resultEnhancedSize');
-    const scaleBadge = document.getElementById('scaleBadge');
-
-    let currentFile = null;
-    let originalWidth = 0;
-    let originalHeight = 0;
-    let enhancedDataUrl = null;
-    let currentUser = null;
-
-    function formatSize(bytes) {
-      if (!bytes) return '0 B';
-      if (bytes < 1024) return bytes + ' B';
-      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-      return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
-    }
-
-    function formatDate(dateStr) {
-      const date = new Date(dateStr);
-      const now = new Date();
-      const diff = now - date;
-      
-      if (diff < 60000) return 'Just now';
-      if (diff < 3600000) return Math.floor(diff / 60000) + ' min ago';
-      if (diff < 86400000) return Math.floor(diff / 3600000) + ' hours ago';
-      if (diff < 604800000) return Math.floor(diff / 86400000) + ' days ago';
-      
-      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    }
-
-    // Record user login
-    async function recordUserLogin(user) {
-      try {
-        await fetch(`${WORKER_URL}/api/record-login`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            uid: user.uid,
-            email: user.email,
-            name: user.displayName,
-            picture: user.photoURL
-          })
-        });
-      } catch (e) { console.log('Failed to record login'); }
-    }
-
-    // Record usage
-    async function recordUsage(usageData) {
-      try {
-        await fetch(`${WORKER_URL}/api/record-usage`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(usageData)
-        });
-      } catch (e) { console.log('Failed to record usage'); }
-    }
-
-    // Load user stats
-    async function loadUserStats(uid) {
-      try {
-        const [userRes, statsRes] = await Promise.all([
-          fetch(`${WORKER_URL}/api/user?uid=${uid}`),
-          fetch(`${WORKER_URL}/api/user/stats?uid=${uid}`)
-        ]);
-        
-        const user = await userRes.json();
-        const stats = await statsRes.json();
-
-        document.getElementById('profileAvatar').src = user.picture || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || user.email)}&background=667eea&color=fff`;
-        document.getElementById('profileName').textContent = user.name || 'User';
-        document.getElementById('profileEmail').textContent = user.email;
-        document.getElementById('statTotal').textContent = stats.total_usage || 0;
-        document.getElementById('statToday').textContent = stats.today_usage || 0;
-        document.getElementById('statWeek').textContent = stats.week_usage || 0;
-        document.getElementById('statSaved').textContent = (stats.storage_saved || 0) + '%';
-
-        // Load history
-        const historyRes = await fetch(`${WORKER_URL}/api/user/history?uid=${uid}&limit=10`);
-        const history = await historyRes.json();
-        
-        const historyList = document.getElementById('historyList');
-        if (history.length === 0) {
-          historyList.innerHTML = '<p class="text-center py-8 text-gray-400 text-sm">No history yet. Start enhancing images!</p>';
-        } else {
-          historyList.innerHTML = history.map(item => `
-            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg text-sm">
-              <div>
-                <p class="font-medium text-gray-700">${item.filename || 'Untitled'}</p>
-                <p class="text-xs text-gray-400">${item.original_width}×${item.original_height} → ${item.enhanced_width}×${item.enhanced_height}</p>
-              </div>
-              <div class="text-right">
-                <span class="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-medium">${item.scale}x</span>
-                <p class="text-xs text-gray-400 mt-1">${formatDate(item.created_at)}</p>
-              </div>
-            </div>
-          `).join('');
-        }
-      } catch (e) {
-        console.error('Failed to load stats:', e);
-      }
-    }
-
-    // Auth UI
-    function renderAuthUI(user) {
-      if (user) {
-        currentUser = user;
-        loginOverlay.classList.add('hidden');
-        mainContent.classList.remove('hidden');
-        
-        const avatarUrl = user.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName || user.email)}&background=667eea&color=fff`;
-        const userName = user.displayName || user.email.split('@')[0];
-        
-        authSection.innerHTML = `
-          <div class="flex items-center gap-3">
-            <button id="profileBtn" class="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-white/10 transition-colors">
-              <img src="${avatarUrl}" alt="${userName}" class="w-8 h-8 rounded-full border border-white/50">
-              <span class="hidden sm:inline text-sm font-medium">${userName}</span>
-            </button>
-          </div>`;
-
-        document.getElementById('profileBtn').addEventListener('click', () => {
-          profileModal.classList.remove('hidden');
-          loadUserStats(user.uid);
-        });
-        
-        recordUserLogin(user);
-      } else {
-        currentUser = null;
-        loginOverlay.classList.remove('hidden');
-        mainContent.classList.add('hidden');
-        profileModal.classList.add('hidden');
-        authSection.innerHTML = '';
-      }
-    }
-
-    // Profile modal events
-    document.getElementById('closeProfileBtn').addEventListener('click', () => {
-      profileModal.classList.add('hidden');
-    });
-    
-    document.getElementById('logoutFromProfileBtn').addEventListener('click', () => {
-      profileModal.classList.add('hidden');
-      auth.signOut();
-    });
-
-    profileModal.addEventListener('click', (e) => {
-      if (e.target === profileModal) profileModal.classList.add('hidden');
-    });
-
-    // Google Login
-    const googleProvider = new firebase.auth.GoogleAuthProvider();
-    googleProvider.addScope('email');
-
-    googleLoginBtn.addEventListener('click', async () => {
-      loginError.classList.add('hidden');
-      googleLoginBtn.disabled = true;
-      googleLoginBtn.innerHTML = '<span class="spinner"></span> Signing in...';
-      try {
-        await auth.signInWithPopup(googleProvider);
-      } catch (error) {
-        loginError.textContent = error.message || 'Failed to sign in';
-        loginError.classList.remove('hidden');
-        googleLoginBtn.disabled = false;
-        googleLoginBtn.innerHTML = `<svg class="w-5 h-5" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>Sign in with Google`;
-      }
-    });
-
+    const auth=firebase.auth(),WORKER_URL='https://image-enhancement-worker.feiz45607.workers.dev';
+    const faqData=[{q:"How does free plan work?",a:"Free users get 10 credits for 2x and 3 credits for 4x daily."},{q:"What formats are supported?",a:"JPG, PNG, WebP up to 10MB."},{q:"How is image upscaled?",a:"We use advanced Canvas bicubic interpolation."},{q:"Can I cancel Pro?",a:"Yes, cancel anytime."},{q:"Is my data secure?",a:"Yes! Images are processed in memory only."}];
+    const loginOverlay=document.getElementById('loginOverlay'),profileModal=document.getElementById('profileModal'),quotaModal=document.getElementById('quotaModal'),mainContent=document.getElementById('mainContent'),pricingPage=document.getElementById('pricingPage'),faqPage=document.getElementById('faqPage'),uploadZone=document.getElementById('uploadZone'),fileInput=document.getElementById('fileInput'),controls=document.getElementById('controls'),preview=document.getElementById('preview'),results=document.getElementById('results'),progressContainer=document.getElementById('progressContainer'),progressBar=document.getElementById('progressBar'),statusText=document.getElementById('statusText'),errorContainer=document.getElementById('errorContainer'),errorText=document.getElementById('errorText'),originalResult=document.getElementById('originalResult'),enhancedResult=document.getElementById('enhancedResult'),originalSizeLabel=document.getElementById('originalSizeLabel'),resultOriginalSize=document.getElementById('resultOriginalSize'),resultEnhancedSize=document.getElementById('resultEnhancedSize'),scaleBadge=document.getElementById('scaleBadge');
+    let currentFile=null,originalWidth=0,originalHeight=0,enhancedDataUrl=null,currentUser=null,currentPlan='free';
+    function formatSize(b){return b?(b<1048576?(b/1024).toFixed(1)+' KB':(b/1048576).toFixed(2)+' MB'):'0 B';}
+    function formatDate(d){const n=new Date(),df=new Date(d),diff=n-df;if(diff<86400000)return diff<3600000?Math.floor(diff/60000)+'m ago':Math.floor(diff/3600000)+'h ago';return df.toLocaleDateString('en-US',{month:'short',day:'numeric'});}
+    function showPage(p){mainContent.classList.toggle('hidden',p!='home');pricingPage.classList.toggle('hidden',p!='pricing');faqPage.classList.toggle('hidden',p!='faq');if(p=='faq')renderFAQ();}
+    function closeProfile(){profileModal.classList.add('hidden');}
+    function closeQuotaModal(){quotaModal.classList.add('hidden');}
+    function signOut(){closeProfile();auth.signOut();}
+    function renderFAQ(){document.getElementById('faqList').innerHTML=faqData.map((f,i)=>`<div class="bg-white rounded-xl shadow-sm"><button onclick="this.nextElementSibling.classList.toggle('hidden');this.querySelector('span').textContent=this.nextElementSibling.classList.contains('hidden')?'▼':'▲'" class="w-full p-4 text-left flex justify-between">${f.q}<span>▼</span></button><div class="hidden px-4 pb-4 text-gray-600">${f.a}</div></div>`).join('');}
+    async function recordLogin(u){await fetch(WORKER_URL+'/api/record-login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({uid:u.uid,email:u.email,name:u.displayName,picture:u.photoURL})}).catch(()=>{});}
+    async function checkQuota(scale){try{const r=await fetch(WORKER_URL+'/api/check-quota?uid='+currentUser.uid+'&scale='+scale);return await r.json();}catch(){return {allowed:true,unlimited:true};}}
+    async function consumeQuota(scale){try{const r=await fetch(WORKER_URL+'/api/consume-quota',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({uid:currentUser.uid,scale})}),d=await r.json();if(d.upgrade_required)quotaModal.classList.remove('hidden');return d.success||false;}catch(){return true;}}
+    async function recordUsage(d){await fetch(WORKER_URL+'/api/record-usage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)}).catch(()=>{});}
+    async function loadUserData(){if(!currentUser)return;try{const[ur,sr,hr]=await Promise.all([fetch(WORKER_URL+'/api/user?uid='+currentUser.uid),fetch(WORKER_URL+'/api/user/stats?uid='+currentUser.uid),fetch(WORKER_URL+'/api/user/history?uid='+currentUser.uid)]),u=await ur.json(),s=await sr.json(),h=await hr.json();document.getElementById('profileAvatar').src=u.picture||'https://ui-avatars.com/api/?name='+encodeURIComponent(u.name||u.email)+'&bg=667eea&color=fff';document.getElementById('profileName').textContent=u.name||'User';document.getElementById('profileEmail').textContent=u.email;document.getElementById('profilePlan').textContent=u.plan_name||u.plan;document.getElementById('profilePlan').className=u.plan==='pro'?'inline-block mt-1 px-2 py-0.5 bg-purple-500 text-white rounded text-xs':'inline-block mt-1 px-2 py-0.5 bg-purple-100 text-purple-700 rounded text-xs';document.getElementById('quota2x').textContent=u.unlimited?'∞':u.remaining_2x;document.getElementById('quota4x').textContent=u.unlimited?'∞':u.remaining_4x;document.getElementById('quotaDisplay').style.display=u.plan==='pro'?'none':'block';document.getElementById('statTotal').textContent=s.total_usage||0;document.getElementById('statWeek').textContent=s.week_usage||0;currentPlan=u.plan;const list=document.getElementById('historyList');list.innerHTML=h.length?h.map(x=>`<div class="p-3 bg-gray-50 rounded-lg text-sm flex justify-between"><div><p class="font-medium">${x.filename||'Untitled'}</p><p class="text-xs text-gray-400">${x.original_width}×${x.original_height} → ${x.enhanced_width}×${x.enhanced_height}</p></div><div class="text-right"><span class="px-2 py-0.5 bg-purple-100 rounded text-xs">${x.scale}x</span><p class="text-xs text-gray-400 mt-1">${formatDate(x.created_at)}</p></div></div>`).join(''):'<p class="text-center py-4 text-gray-400">No history yet</p>';}catch(e){console.error(e);}}
+    function renderAuthUI(u){if(u){currentUser=u;loginOverlay.classList.add('hidden');showPage('home');const a=u.photoURL||'https://ui-avatars.com/api/?name='+encodeURIComponent(u.displayName||u.email)+'&bg=667eea&color=fff',n=u.displayName||u.email.split('@')[0];document.getElementById('authSection').innerHTML='<button onclick="profileModal.classList.remove(\\'hidden\\');loadUserData();" class="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-white/10"><img src="'+a+'" class="w-8 h-8 rounded-full border border-white/50"><span class="hidden sm:inline text-sm">'+n+'</span></button>';recordLogin(u);}else{currentUser=null;currentPlan='free';loginOverlay.classList.remove('hidden');showPage('home');document.getElementById('authSection').innerHTML='';}}
+    document.getElementById('upgradeBtn').addEventListener('click',async()=>{if(!currentUser){alert('Please sign in first');return;}if(currentPlan==='pro'){alert('Already Pro!');return;}if(confirm('Upgrade to Pro $9.9/mo?\n(OK to simulate)')){await fetch(WORKER_URL+'/api/upgrade',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({uid:currentUser.uid})});currentPlan='pro';alert('🎉 Upgraded to Pro!');showPage('home');}});
+    document.getElementById('googleLoginBtn').addEventListener('click',async()=>{document.getElementById('loginError').classList.add('hidden');document.getElementById('googleLoginBtn').disabled=true;document.getElementById('googleLoginBtn').innerHTML='<span class="spinner"></span>...';try{await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());}catch(e){document.getElementById('loginError').textContent=e.message;document.getElementById('loginError').classList.remove('hidden');document.getElementById('googleLoginBtn').disabled=false;document.getElementById('googleLoginBtn').innerHTML='<svg class="w-5 h-5" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg> Sign in with Google';}});
     auth.onAuthStateChanged(renderAuthUI);
-
-    // Image upscaling
-    function upscaleImage(img, scale) {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      const newWidth = img.naturalWidth * scale;
-      const newHeight = img.naturalHeight * scale;
-      canvas.width = newWidth;
-      canvas.height = newHeight;
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = 'high';
-      ctx.drawImage(img, 0, 0, newWidth, newHeight);
-      return { dataUrl: canvas.toDataURL('image/png'), width: newWidth, height: newHeight };
-    }
-
-    // Event listeners
-    uploadZone.addEventListener('click', () => fileInput.click());
-    uploadZone.addEventListener('dragover', (e) => { e.preventDefault(); uploadZone.classList.add('dragging'); });
-    uploadZone.addEventListener('dragleave', () => { uploadZone.classList.remove('dragging'); });
-    uploadZone.addEventListener('drop', (e) => { e.preventDefault(); uploadZone.classList.remove('dragging'); const file = e.dataTransfer.files[0]; if (file) handleFile(file); });
-    fileInput.addEventListener('change', (e) => { const file = e.target.files[0]; if (file) handleFile(file); });
-    document.querySelectorAll('input[name="scale"]').forEach(radio => radio.addEventListener('change', updateStyles));
-    document.getElementById('processBtn').addEventListener('click', processImage);
-    document.getElementById('cancelBtn').addEventListener('click', reset);
-    document.getElementById('downloadBtn').addEventListener('click', downloadImage);
-    document.getElementById('resetBtn').addEventListener('click', reset);
-
-    function updateStyles() {
-      ['scale2', 'scale4'].forEach(id => {
-        const label = document.getElementById(id + '-label');
-        const input = label.querySelector('input');
-        label.className = 'flex items-center cursor-pointer px-6 py-3 rounded-lg border-2 transition-all ' + 
-          (input.checked ? 'border-purple-500 bg-purple-50' : 'bg-gray-50 border-gray-200 hover:border-gray-300');
-      });
-    }
-
-    function handleFile(file) {
-      if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) { showError('Please upload a JPG, PNG, or WebP image.'); return; }
-      if (file.size > 10 * 1024 * 1024) { showError('File size must be less than 10MB.'); return; }
-      hideError(); currentFile = file;
-      const reader = new FileReader();
-      reader.onload = (e) => { 
-        preview.src = e.target.result;
-        const img = new Image();
-        img.onload = () => {
-          originalWidth = img.naturalWidth;
-          originalHeight = img.naturalHeight;
-          originalSizeLabel.textContent = `${originalWidth} × ${originalHeight} px (${formatSize(file.size)})`;
-        };
-        img.src = e.target.result;
-        controls.classList.remove('hidden'); results.classList.add('hidden'); updateStyles(); 
-      };
-      reader.readAsDataURL(file);
-    }
-
-    async function processImage() {
-      if (!currentFile) return;
-      if (!currentUser) { showError('Please sign in first.'); return; }
-
-      const scale = parseInt(document.querySelector('input[name="scale"]:checked').value);
-      showProgress(0, 'Preparing...');
-      document.getElementById('processBtn').disabled = true;
-
-      try {
-        showProgress(20, 'Loading...');
-        const img = new Image();
-        await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; img.src = preview.src; });
-        showProgress(40, 'Upscaling...');
-        const result = upscaleImage(img, scale);
-        enhancedDataUrl = result.dataUrl;
-        showProgress(80, 'Finalizing...');
-
-        // Record usage
-        await recordUsage({
-          user_id: currentUser.uid,
-          filename: currentFile.name,
-          original_size: currentFile.size,
-          original_width: originalWidth,
-          original_height: originalHeight,
-          enhanced_width: result.width,
-          enhanced_height: result.height,
-          scale: scale
-        });
-
-        resultOriginalSize.textContent = `${originalWidth}×${originalHeight}`;
-        resultEnhancedSize.textContent = `${result.width}×${result.height}`;
-        scaleBadge.textContent = `${scale}x`;
-        originalResult.src = preview.src;
-        enhancedResult.src = enhancedDataUrl;
-        enhancedResult.style.width = result.width + 'px';
-        enhancedResult.style.height = result.height + 'px';
-        controls.classList.add('hidden');
-        results.classList.remove('hidden');
-        showProgress(100, 'Done!');
-      } catch (err) {
-        showError(err.message || 'Processing failed');
-        hideProgress();
-      }
-      document.getElementById('processBtn').disabled = false;
-    }
-
-    function downloadImage() { 
-      if (!enhancedDataUrl) return; 
-      const link = document.createElement('a'); 
-      link.href = enhancedDataUrl; 
-      link.download = 'enhanced-image.png'; 
-      link.click(); 
-    }
-    
-    function reset() { 
-      currentFile = null; enhancedDataUrl = null; originalWidth = 0; originalHeight = 0; fileInput.value = ''; 
-      enhancedResult.style.width = ''; enhancedResult.style.height = '';
-      controls.classList.add('hidden'); results.classList.add('hidden'); hideError(); hideProgress(); 
-    }
-    
-    function showProgress(percent, message) { progressContainer.classList.remove('hidden'); progressBar.style.width = percent + '%'; statusText.textContent = `${percent}% — ${message}`; }
-    function hideProgress() { progressContainer.classList.add('hidden'); }
-    function showError(message) { errorContainer.classList.remove('hidden'); errorText.textContent = message; }
-    function hideError() { errorContainer.classList.add('hidden'); }
+    function upscaleImage(img,scale){const c=document.createElement('canvas'),ctx=c.getContext('2d');c.width=img.naturalWidth*scale;c.height=img.naturalHeight*scale;ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';ctx.drawImage(img,0,0,c.width,c.height);return{dataUrl:c.toDataURL('image/png'),width:c.width,height:c.height};}
+    uploadZone.addEventListener('click',()=>fileInput.click());
+    uploadZone.addEventListener('dragover',e=>{e.preventDefault();uploadZone.classList.add('border-purple-500','bg-purple-50');});
+    uploadZone.addEventListener('dragleave',()=>uploadZone.classList.remove('border-purple-500','bg-purple-50'));
+    uploadZone.addEventListener('drop',e=>{e.preventDefault();uploadZone.classList.remove('border-purple-500','bg-purple-50');const f=e.dataTransfer.files[0];if(f)handleFile(f);});
+    fileInput.addEventListener('change',e=>{const f=e.target.files[0];if(f)handleFile(f);});
+    document.querySelectorAll('input[name="scale"]').forEach(r=>{r.addEventListener('change',()=>{['scale2','scale4'].forEach(id=>{const l=document.getElementById(id+'-label');l.className='flex items-center px-6 py-3 rounded-lg border-2 cursor-pointer '+(l.querySelector('input').checked?'border-purple-500 bg-purple-50':'bg-gray-50 border-gray-200');});});});
+    document.getElementById('processBtn').addEventListener('click',processImage);
+    document.getElementById('downloadBtn').addEventListener('click',()=>{if(enhancedDataUrl){const l=document.createElement('a');l.href=enhancedDataUrl;l.download='enhanced.png';l.click();}});
+    function handleFile(f){if(!['image/jpeg','image/png','image/webp'].includes(f.type)){showError('JPG/PNG/WebP only');return;}if(f.size>10485760){showError('Max 10MB');return;}hideError();currentFile=f;const r=new FileReader();r.onload=e=>{preview.src=e.target.result;const img=new Image();img.onload=()=>{originalWidth=img.naturalWidth;originalHeight=img.naturalHeight;originalSizeLabel.textContent=originalWidth+'×'+originalHeight+' ('+formatSize(f.size)+')';};img.src=e.target.result;controls.classList.remove('hidden');results.classList.add('hidden');};r.readAsDataURL(f);}
+    async function processImage(){if(!currentFile||!currentUser)return;const scale=parseInt(document.querySelector('input[name="scale"]:checked').value);showProgress(0,'Checking quota...');document.getElementById('processBtn').disabled=true;try{const quota=await checkQuota(scale);if(!quota.allowed)return;showProgress(20,'Loading...');const img=new Image();await new Promise((res,rej)=>{img.onload=res;img.onerror=rej;img.src=preview.src;});showProgress(40,'Upscaling...');const result=upscaleImage(img,scale);showProgress(80,'Saving...');const consumed=await consumeQuota(scale);if(!consumed)return;await recordUsage({user_id:currentUser.uid,filename:currentFile.name,original_size:currentFile.size,original_width:originalWidth,original_height:originalHeight,enhanced_width:result.width,enhanced_height:result.height,scale});enhancedDataUrl=result.dataUrl;resultOriginalSize.textContent=originalWidth+'×'+originalHeight;resultEnhancedSize.textContent=result.width+'×'+result.height;scaleBadge.textContent=scale+'x';originalResult.src=preview.src;enhancedResult.src=result.dataUrl;enhancedResult.style.width=result.width+'px';enhancedResult.style.height=result.height+'px';controls.classList.add('hidden');results.classList.remove('hidden');showProgress(100,'Done!');}catch(e){showError(e.message||'Failed');}document.getElementById('processBtn').disabled=false;}
+    function reset(){currentFile=null;enhancedDataUrl=null;originalWidth=0;originalHeight=0;fileInput.value='';enhancedResult.style.width='';enhancedResult.style.height='';controls.classList.add('hidden');results.classList.add('hidden');hideError();hideProgress();}
+    function showProgress(pct,msg){progressContainer.classList.remove('hidden');progressBar.style.width=pct+'%';statusText.textContent=pct+'% — '+msg;}
+    function hideProgress(){progressContainer.classList.add('hidden');}
+    function showError(m){errorContainer.classList.remove('hidden');errorText.textContent=m;}
+    function hideError(){errorContainer.classList.add('hidden');}
   </script>
 </body>
 </html>
