@@ -16,7 +16,6 @@
     .upload-zone.dragging { border-color: #667eea; background: #eff6ff; }
     .processing { animation: pulse 1.5s infinite; }
     @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-    /* Login overlay styles */
     .login-overlay {
       backdrop-filter: blur(8px);
       background: rgba(255, 255, 255, 0.95);
@@ -42,14 +41,11 @@
           <h1 class="text-2xl font-bold">🤖 AI Image Enlargement & Enhancement</h1>
           <p class="text-sm opacity-80 mt-1">Powered by Cloudflare Workers AI</p>
         </div>
-        <!-- User Info / Login Button -->
-        <div id="authSection">
-          <!-- Will be populated by JS -->
-        </div>
+        <div id="authSection"></div>
       </div>
     </header>
 
-    <!-- Login Overlay (shown when not logged in) -->
+    <!-- Login Overlay -->
     <div id="loginOverlay" class="login-overlay fixed inset-0 flex items-center justify-center z-50">
       <div class="text-center p-8 max-w-md">
         <div class="text-6xl mb-6">🔐</div>
@@ -65,13 +61,11 @@
           Sign in with Google
         </button>
         <p id="loginError" class="hidden text-red-500 text-sm mt-4"></p>
-        <p class="text-xs text-gray-400 mt-6">By signing in, you agree to our Terms of Service.</p>
       </div>
     </div>
 
-    <!-- Main Content (hidden until logged in) -->
+    <!-- Main Content -->
     <main id="mainContent" class="flex-1 max-w-4xl mx-auto px-4 py-8 w-full hidden">
-      <!-- Upload Zone -->
       <div id="uploadZone" class="upload-zone border-2 border-dashed border-gray-300 rounded-xl p-12 text-center cursor-pointer bg-white">
         <input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp" class="hidden">
         <div class="text-5xl mb-4">📤</div>
@@ -79,9 +73,7 @@
         <p class="text-gray-500">or click to browse — JPG, PNG, WebP up to 10MB</p>
       </div>
 
-      <!-- Controls -->
       <div id="controls" class="hidden mt-6 space-y-6">
-        <!-- Preview -->
         <div class="bg-white rounded-xl shadow-sm p-6">
           <h3 class="text-lg font-semibold text-gray-700 mb-4">Original Image</h3>
           <div class="bg-gray-100 rounded-lg p-4 flex items-center justify-center">
@@ -89,7 +81,6 @@
           </div>
         </div>
 
-        <!-- Settings -->
         <div class="bg-white rounded-xl shadow-sm p-6">
           <div class="p-4 bg-purple-50 border border-purple-200 rounded-lg mb-6">
             <p class="text-purple-700 text-sm">
@@ -98,7 +89,6 @@
             </p>
           </div>
 
-          <!-- Scale Selection -->
           <div class="mb-6">
             <label class="block text-sm font-medium text-gray-700 mb-3">Upscale Factor</label>
             <div class="flex flex-wrap gap-4">
@@ -113,7 +103,6 @@
             </div>
           </div>
 
-          <!-- Actions -->
           <div class="flex gap-4">
             <button id="processBtn" class="flex-1 py-3 px-6 rounded-lg font-medium text-white gradient-bg hover:opacity-90 transition-opacity">
               🚀 Start AI Enhancement
@@ -123,7 +112,6 @@
             </button>
           </div>
 
-          <!-- Progress -->
           <div id="progressContainer" class="hidden mt-4">
             <div class="h-3 bg-gray-200 rounded-full overflow-hidden">
               <div id="progressBar" class="h-full gradient-bg transition-all duration-300" style="width: 0%"></div>
@@ -133,7 +121,6 @@
         </div>
       </div>
 
-      <!-- Results -->
       <div id="results" class="hidden mt-6 space-y-6">
         <div class="bg-white rounded-xl shadow-sm p-6">
           <h3 class="text-lg font-semibold text-gray-700 mb-4">🎉 AI Enhancement Complete!</h3>
@@ -165,39 +152,31 @@
         </div>
       </div>
 
-      <!-- Error Message -->
       <div id="errorContainer" class="hidden mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
         <p id="errorText" class="text-red-600 text-sm"></p>
       </div>
     </main>
 
-    <!-- Footer -->
     <footer class="text-center text-sm text-gray-400 py-6">
       <p>🤖 Powered by Cloudflare Workers AI</p>
     </footer>
   </div>
 
   <script>
-    // ============================================
-    // FIREBASE CONFIGURATION
-    // Replace with your Firebase config
-    // ============================================
+    // Firebase Configuration
     const firebaseConfig = {
-      apiKey: "YOUR_FIREBASE_API_KEY",
-      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-      projectId: "YOUR_PROJECT_ID",
-      storageBucket: "YOUR_PROJECT_ID.appspot.com",
-      messagingSenderId: "YOUR_SENDER_ID",
-      appId: "YOUR_APP_ID"
+      apiKey: "AIzaSyCu0oQiU0PagS5ujK-cp0k1Olp6pldgT8Q",
+      authDomain: "image-enhancer-auth-1c566.firebaseapp.com",
+      projectId: "image-enhancer-auth-1c566",
+      storageBucket: "image-enhancer-auth-1c566.firebasestorage.app",
+      messagingSenderId: "295581624927",
+      appId: "1:295581624927:web:467dfb1b27462a73f049ea"
     };
 
-    // Initialize Firebase
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
 
-    // ============================================
-    // DOM ELEMENTS
-    // ============================================
+    // DOM Elements
     const loginOverlay = document.getElementById('loginOverlay');
     const mainContent = document.getElementById('mainContent');
     const authSection = document.getElementById('authSection');
@@ -216,24 +195,17 @@
     const originalResult = document.getElementById('originalResult');
     const enhancedResult = document.getElementById('enhancedResult');
 
-    // API endpoint
     const API_URL = 'https://image-enhancement-worker.feiz45607.workers.dev';
-
     let currentFile = null;
     let enhancedDataUrl = null;
 
-    // ============================================
-    // AUTHENTICATION
-    // ============================================
+    // Auth UI
     function renderAuthUI(user) {
       if (user) {
-        // User is logged in
         loginOverlay.classList.add('hidden');
         mainContent.classList.remove('hidden');
-        
         const avatarUrl = user.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName || user.email)}&background=667eea&color=fff`;
         const userName = user.displayName || user.email.split('@')[0];
-        
         authSection.innerHTML = `
           <div class="flex items-center gap-3">
             <img src="${avatarUrl}" alt="${userName}" class="w-10 h-10 rounded-full border-2 border-white">
@@ -241,58 +213,36 @@
               <p class="text-sm font-medium">${userName}</p>
               <button id="logoutBtn" class="text-xs text-white/80 hover:text-white underline">Sign out</button>
             </div>
-          </div>
-        `;
-        
-        document.getElementById('logoutBtn').addEventListener('click', () => {
-          auth.signOut();
-        });
+          </div>`;
+        document.getElementById('logoutBtn')?.addEventListener('click', () => auth.signOut());
       } else {
-        // User is not logged in
         loginOverlay.classList.remove('hidden');
         mainContent.classList.add('hidden');
-        
         authSection.innerHTML = '';
       }
     }
 
-    // Google Auth Provider
     const googleProvider = new firebase.auth.GoogleAuthProvider();
     googleProvider.addScope('email');
     googleProvider.setCustomParameters({ prompt: 'select_account' });
 
-    // Login with Google
     googleLoginBtn.addEventListener('click', async () => {
       loginError.classList.add('hidden');
       googleLoginBtn.disabled = true;
       googleLoginBtn.innerHTML = '<span class="animate-spin">⏳</span> Signing in...';
-
       try {
-        const result = await auth.signInWithPopup(googleProvider);
-        console.log('User signed in:', result.user.email);
+        await auth.signInWithPopup(googleProvider);
       } catch (error) {
-        console.error('Login error:', error);
-        loginError.textContent = error.message || 'Failed to sign in. Please try again.';
+        loginError.textContent = error.message || 'Failed to sign in';
         loginError.classList.remove('hidden');
         googleLoginBtn.disabled = false;
-        googleLoginBtn.innerHTML = `
-          <svg class="w-5 h-5" viewBox="0 0 24 24">
-            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-          </svg>
-          Sign in with Google
-        `;
+        googleLoginBtn.innerHTML = `<svg class="w-5 h-5" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>Sign in with Google`;
       }
     });
 
-    // Auth state observer
     auth.onAuthStateChanged(renderAuthUI);
 
-    // ============================================
-    // IMAGE PROCESSING LOGIC
-    // ============================================
+    // Image Processing
     function updateStyles() {
       ['scale2', 'scale4'].forEach(id => {
         const label = document.getElementById(id + '-label');
@@ -302,152 +252,60 @@
       });
     }
 
-    // Event listeners
     uploadZone.addEventListener('click', () => fileInput.click());
-    uploadZone.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      uploadZone.classList.add('dragging');
-    });
-    uploadZone.addEventListener('dragleave', () => {
-      uploadZone.classList.remove('dragging');
-    });
-    uploadZone.addEventListener('drop', (e) => {
-      e.preventDefault();
-      uploadZone.classList.remove('dragging');
-      const file = e.dataTransfer.files[0];
-      if (file) handleFile(file);
-    });
-    fileInput.addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (file) handleFile(file);
-    });
-
-    document.querySelectorAll('input[name="scale"]').forEach(radio => {
-      radio.addEventListener('change', updateStyles);
-    });
-
+    uploadZone.addEventListener('dragover', (e) => { e.preventDefault(); uploadZone.classList.add('dragging'); });
+    uploadZone.addEventListener('dragleave', () => { uploadZone.classList.remove('dragging'); });
+    uploadZone.addEventListener('drop', (e) => { e.preventDefault(); uploadZone.classList.remove('dragging'); const file = e.dataTransfer.files[0]; if (file) handleFile(file); });
+    fileInput.addEventListener('change', (e) => { const file = e.target.files[0]; if (file) handleFile(file); });
+    document.querySelectorAll('input[name="scale"]').forEach(radio => { radio.addEventListener('change', updateStyles); });
     document.getElementById('processBtn').addEventListener('click', processImage);
     document.getElementById('cancelBtn').addEventListener('click', reset);
     document.getElementById('downloadBtn').addEventListener('click', downloadImage);
     document.getElementById('resetBtn').addEventListener('click', reset);
 
     function handleFile(file) {
-      if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-        showError('Please upload a JPG, PNG, or WebP image.');
-        return;
-      }
-      if (file.size > 10 * 1024 * 1024) {
-        showError('File size must be less than 10MB.');
-        return;
-      }
-
-      hideError();
-      currentFile = file;
-
+      if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) { showError('Please upload a JPG, PNG, or WebP image.'); return; }
+      if (file.size > 10 * 1024 * 1024) { showError('File size must be less than 10MB.'); return; }
+      hideError(); currentFile = file;
       const reader = new FileReader();
-      reader.onload = (e) => {
-        preview.src = e.target.result;
-        controls.classList.remove('hidden');
-        results.classList.add('hidden');
-        updateStyles();
-      };
+      reader.onload = (e) => { preview.src = e.target.result; controls.classList.remove('hidden'); results.classList.add('hidden'); updateStyles(); };
       reader.readAsDataURL(file);
     }
 
     async function processImage() {
       if (!currentFile) return;
-
       const scale = document.querySelector('input[name="scale"]:checked').value;
-      
       showProgress(0, 'Preparing image...');
       document.getElementById('processBtn').disabled = true;
-
       try {
         showProgress(10, 'Sending to AI...');
-
         const formData = new FormData();
         formData.append('image', currentFile);
         formData.append('scale', scale);
-
         showProgress(30, 'AI is processing...');
-
-        const response = await fetch(API_URL, {
-          method: 'POST',
-          body: formData,
-        });
-
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.error || 'AI processing failed');
-        }
-
+        const response = await fetch(API_URL, { method: 'POST', body: formData });
+        if (!response.ok) { const error = await response.json(); throw new Error(error.error || 'AI processing failed'); }
         showProgress(70, 'Receiving enhanced image...');
         const data = await response.json();
-
-        if (data.error) {
-          throw new Error(data.error);
-        }
-
-        // Handle base64 response
+        if (data.error) throw new Error(data.error);
         let imageData = data.image;
-        if (imageData && !imageData.startsWith('data:')) {
-          imageData = `data:image/png;base64,${imageData}`;
-        }
-
+        if (imageData && !imageData.startsWith('data:')) { imageData = `data:image/png;base64,${imageData}`; }
         enhancedDataUrl = imageData;
         showProgress(100, 'Done!');
-
-        // Show results
         originalResult.src = preview.src;
         enhancedResult.src = enhancedDataUrl;
         controls.classList.add('hidden');
         results.classList.remove('hidden');
-
-      } catch (err) {
-        console.error('Error:', err);
-        showError(err.message || 'AI processing failed. Please try again.');
-        hideProgress();
-      }
-
+      } catch (err) { showError(err.message || 'AI processing failed. Please try again.'); hideProgress(); }
       document.getElementById('processBtn').disabled = false;
     }
 
-    function downloadImage() {
-      if (!enhancedDataUrl) return;
-      const link = document.createElement('a');
-      link.href = enhancedDataUrl;
-      link.download = 'ai-enhanced.png';
-      link.click();
-    }
-
-    function reset() {
-      currentFile = null;
-      enhancedDataUrl = null;
-      fileInput.value = '';
-      controls.classList.add('hidden');
-      results.classList.add('hidden');
-      hideError();
-      hideProgress();
-    }
-
-    function showProgress(percent, message) {
-      progressContainer.classList.remove('hidden');
-      progressBar.style.width = percent + '%';
-      statusText.textContent = `${percent}% — ${message}`;
-    }
-
-    function hideProgress() {
-      progressContainer.classList.add('hidden');
-    }
-
-    function showError(message) {
-      errorContainer.classList.remove('hidden');
-      errorText.textContent = message;
-    }
-
-    function hideError() {
-      errorContainer.classList.add('hidden');
-    }
+    function downloadImage() { if (!enhancedDataUrl) return; const link = document.createElement('a'); link.href = enhancedDataUrl; link.download = 'ai-enhanced.png'; link.click(); }
+    function reset() { currentFile = null; enhancedDataUrl = null; fileInput.value = ''; controls.classList.add('hidden'); results.classList.add('hidden'); hideError(); hideProgress(); }
+    function showProgress(percent, message) { progressContainer.classList.remove('hidden'); progressBar.style.width = percent + '%'; statusText.textContent = `${percent}% — ${message}`; }
+    function hideProgress() { progressContainer.classList.add('hidden'); }
+    function showError(message) { errorContainer.classList.remove('hidden'); errorText.textContent = message; }
+    function hideError() { errorContainer.classList.add('hidden'); }
   </script>
 </body>
 </html>
