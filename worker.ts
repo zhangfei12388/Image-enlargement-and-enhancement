@@ -3,33 +3,26 @@ interface Env {
   DB: D1Database;
 }
 
-// Pricing plans config
+// Pricing Plans
 const PLANS = {
-  free: {
-    name: 'Free',
-    price: 0,
-    quota_2x: 10,
-    quota_4x: 3,
-    unlimited: false
-  },
-  pro: {
-    name: 'Pro',
-    price: 9.9,
-    quota_2x: -1, // unlimited
-    quota_4x: -1,
-    unlimited: true
-  }
+  free: { name: 'Free', monthly_credits: 3, price: 0 },
+  basic: { name: 'Basic', monthly_credits: 500, price: 4.9 },
+  pro: { name: 'Pro', monthly_credits: -1, price: 9.9 }
 };
 
-function corsResponse(data: unknown, status = 200): Response {
+// Credit Packages
+const CREDIT_PACKAGES = [
+  { name: 'Starter', credits: 30, price: 0.5, days: 30 },
+  { name: 'Small', credits: 100, price: 1, days: 30 },
+  { name: 'Medium', credits: 500, price: 4, days: 90 },
+  { name: 'Large', credits: 1000, price: 7, days: 180 },
+  { name: 'Team', credits: 5000, price: 25, days: 365 }
+];
+
+function cors(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: {
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-    },
+    headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
   });
 }
 
@@ -39,300 +32,213 @@ export default {
 
     if (request.method === "OPTIONS") {
       return new Response(null, {
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-        },
+        headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type' }
       });
     }
 
-    // Health check
-    if (url.pathname === "/health") {
-      return corsResponse({ status: "ok", plans: PLANS });
-    }
-
-    // Get plan info
+    // Get plans info
     if (url.pathname === "/api/plans") {
-      return corsResponse({ plans: PLANS });
+      return cors({ plans: PLANS, packages: CREDIT_PACKAGES });
     }
 
-    // Record user login & init quota
+    // Record login & give welcome credits
     if (url.pathname === "/api/record-login") {
-      if (request.method === "POST") {
-        try {
-          const body = await request.json();
-          const { uid, email, name, picture } = body;
+      if (request.method !== "POST") return cors({ error: "Method not allowed" }, 405);
+      try {
+        const { uid, email, name, picture } = await request.json();
+        if (!uid || !email) return cors({ error: "uid and email required" }, 400);
 
-          if (!uid || !email) {
-            return corsResponse({ error: "uid and email required" }, 400);
-          }
-
-          await env.DB.prepare(`
-            INSERT INTO users (id, email, name, picture, last_login, usage_count, plan, quota_2x, quota_4x, quota_reset_date)
-            VALUES (?, ?, ?, ?, datetime('now'), 1, 'free', 10, 3, date('now'))
-            ON CONFLICT(id) DO UPDATE SET
-              name = COALESCE(excluded.name, name),
-              picture = COALESCE(excluded.picture, picture),
-              last_login = datetime('now'),
-              usage_count = usage_count + 1
-          `).bind(uid, email, name || null, picture || null).run();
-
-          return corsResponse({ success: true });
-        } catch (e) {
-          return corsResponse({ error: "Failed to record login" }, 500);
-        }
-      }
-    }
-
-    // Check quota
-    if (url.pathname === "/api/check-quota") {
-      const uid = url.searchParams.get("uid");
-      const scale = parseInt(url.searchParams.get("scale") || "2");
-
-      if (!uid) {
-        return corsResponse({ error: "uid required" }, 400);
-      }
-
-      const user = await env.DB.prepare("SELECT * FROM users WHERE id = ?").bind(uid).first();
-      
-      if (!user) {
-        return corsResponse({ error: "User not found" }, 404);
-      }
-
-      // Check if quota needs reset (new day)
-      const today = new Date().toISOString().split('T')[0];
-      if (user.quota_reset_date !== today && user.plan === 'free') {
-        // Reset daily quota
+        // Upsert user
         await env.DB.prepare(`
-          UPDATE users SET quota_2x = 10, quota_4x = 3, quota_reset_date = date('now') WHERE id = ?
-        `).bind(uid).run();
-        
-        user.quota_2x = 10;
-        user.quota_4x = 3;
-      }
+          INSERT INTO users (id, email, name, picture, last_login, usage_count)
+          VALUES (?, ?, ?, ?, datetime('now'), 1)
+          ON CONFLICT(id) DO UPDATE SET
+            name = COALESCE(excluded.name, name),
+            picture = COALESCE(excluded.picture, picture),
+            last_login = datetime('now'),
+            usage_count = usage_count + 1
+        `).bind(uid, email, name || null, picture || null).run();
 
-      const plan = PLANS[user.plan as keyof typeof PLANS] || PLANS.free;
-      const quota = scale === 4 ? user.quota_4x : user.quota_2x;
-      const hasQuota = plan.unlimited || quota > 0;
-
-      return corsResponse({
-        allowed: hasQuota,
-        plan: user.plan,
-        remaining_2x: plan.unlimited ? -1 : user.quota_2x,
-        remaining_4x: plan.unlimited ? -1 : user.quota_4x,
-        unlimited: plan.unlimited
-      });
-    }
-
-    // Consume quota
-    if (url.pathname === "/api/consume-quota") {
-      if (request.method === "POST") {
-        try {
-          const body = await request.json();
-          const { uid, scale } = body;
-
-          if (!uid) {
-            return corsResponse({ error: "uid required" }, 400);
-          }
-
-          const user = await env.DB.prepare("SELECT * FROM users WHERE id = ?").bind(uid).first();
-          
-          if (!user) {
-            return corsResponse({ error: "User not found" }, 404);
-          }
-
-          // Pro users have unlimited
-          if (user.plan === 'pro') {
-            return corsResponse({ success: true, unlimited: true });
-          }
-
-          // Check and consume quota
-          const today = new Date().toISOString().split('T')[0];
-          if (user.quota_reset_date !== today) {
-            await env.DB.prepare(`
-              UPDATE users SET quota_2x = 10, quota_4x = 3, quota_reset_date = date('now') WHERE id = ?
-            `).bind(uid).run();
-            user.quota_2x = 10;
-            user.quota_4x = 3;
-          }
-
-          const quotaField = scale === 4 ? 'quota_4x' : 'quota_2x';
-          const currentQuota = scale === 4 ? user.quota_4x : user.quota_2x;
-
-          if (currentQuota <= 0) {
-            return corsResponse({ error: "Quota exhausted", upgrade_required: true }, 403);
-          }
-
-          await env.DB.prepare(`UPDATE users SET ${quotaField} = ${quotaField} - 1 WHERE id = ?`).bind(uid).run();
-
-          return corsResponse({ success: true });
-        } catch (e) {
-          return corsResponse({ error: "Failed to consume quota" }, 500);
+        // Give welcome credits if first login
+        const existing = await env.DB.prepare("SELECT * FROM credits WHERE user_id = ?").bind(uid).first();
+        if (!existing) {
+          await env.DB.prepare(`
+            INSERT INTO credits (user_id, amount, plan_type, expires_at)
+            VALUES (?, 3, 'welcome', datetime('now', '+30 days'))
+          `).bind(uid).run();
         }
-      }
+
+        return cors({ success: true });
+      } catch (e) { return cors({ error: "Failed" }, 500); }
     }
 
-    // Get user info
+    // Get user balance
+    if (url.pathname === "/api/balance") {
+      const uid = url.searchParams.get("uid");
+      if (!uid) return cors({ error: "uid required" }, 400);
+
+      // Get subscription
+      const sub = await env.DB.prepare("SELECT * FROM subscriptions WHERE user_id = ? AND status = 'active'").bind(uid).first();
+      const plan = sub ? PLANS[sub.plan as keyof typeof PLANS] : null;
+
+      // Get credit balance
+      const credits = await env.DB.prepare(`
+        SELECT SUM(amount) as total FROM credits 
+        WHERE user_id = ? AND (expires_at IS NULL OR expires_at > datetime('now'))
+      `).bind(uid).first();
+
+      const balance = (credits?.total || 0) + (plan?.monthly_credits === -1 ? 999999 : (sub ? plan?.monthly_credits || 0 : 0));
+
+      return cors({ balance, plan: plan?.name || 'free', unlimited: plan?.monthly_credits === -1 });
+    }
+
+    // Consume credit
+    if (url.pathname === "/api/consume") {
+      if (request.method !== "POST") return cors({ error: "Method not allowed" }, 405);
+      try {
+        const { uid } = await request.json();
+        if (!uid) return cors({ error: "uid required" }, 400);
+
+        // Check subscription first
+        const sub = await env.DB.prepare("SELECT * FROM subscriptions WHERE user_id = ? AND status = 'active'").bind(uid).first();
+        const plan = sub ? PLANS[sub.plan as keyof typeof PLANS] : null;
+        if (plan?.monthly_credits === -1) return cors({ success: true, unlimited: true });
+
+        // Check credits
+        const credits = await env.DB.prepare(`
+          SELECT * FROM credits 
+          WHERE user_id = ? AND amount > 0 AND (expires_at IS NULL OR expires_at > datetime('now'))
+          ORDER BY expires_at ASC LIMIT 1
+        `).bind(uid).first();
+
+        if (!credits && plan?.monthly_credits === 0) {
+          return cors({ error: "No credits", purchase_required: true }, 403);
+        }
+
+        // Deduct credit
+        if (credits) {
+          await env.DB.prepare("UPDATE credits SET amount = amount - 1 WHERE id = ?").bind(credits.id).run();
+        }
+
+        return cors({ success: true });
+      } catch (e) { return cors({ error: "Failed" }, 500); }
+    }
+
+    // Get user info with stats
     if (url.pathname === "/api/user") {
       const uid = url.searchParams.get("uid");
-      if (!uid) {
-        return corsResponse({ error: "uid required" }, 400);
-      }
+      if (!uid) return cors({ error: "uid required" }, 400);
 
       const user = await env.DB.prepare("SELECT * FROM users WHERE id = ?").bind(uid).first();
-      if (!user) {
-        return corsResponse({ error: "User not found" }, 404);
-      }
+      if (!user) return cors({ error: "User not found" }, 404);
 
-      const stats = await env.DB.prepare(
-        "SELECT COUNT(*) as total_usage FROM usage_logs WHERE user_id = ?"
-      ).bind(uid).first();
+      const stats = await env.DB.prepare("SELECT COUNT(*) as count FROM usage_logs WHERE user_id = ?").bind(uid).first();
+      const sub = await env.DB.prepare("SELECT * FROM subscriptions WHERE user_id = ? AND status = 'active'").bind(uid).first();
+      const plan = sub ? PLANS[sub.plan as keyof typeof PLANS] : null;
 
-      // Check quota reset
-      const today = new Date().toISOString().split('T')[0];
-      if (user.quota_reset_date !== today && user.plan === 'free') {
-        await env.DB.prepare(`
-          UPDATE users SET quota_2x = 10, quota_4x = 3, quota_reset_date = date('now') WHERE id = ?
-        `).bind(uid).run();
-        user.quota_2x = 10;
-        user.quota_4x = 3;
-      }
+      const credits = await env.DB.prepare(`
+        SELECT SUM(amount) as total FROM credits 
+        WHERE user_id = ? AND (expires_at IS NULL OR expires_at > datetime('now'))
+      `).bind(uid).first();
 
-      const plan = PLANS[user.plan as keyof typeof PLANS] || PLANS.free;
+      const totalCredits = (plan?.monthly_credits === -1 ? -1 : (credits?.total || 0) + (sub ? plan?.monthly_credits || 0 : 0));
 
-      return corsResponse({
+      return cors({
         id: user.id,
         email: user.email,
         name: user.name,
         picture: user.picture,
-        plan: user.plan,
-        plan_name: plan.name,
-        total_usage: stats?.total_usage || 0,
-        remaining_2x: plan.unlimited ? -1 : user.quota_2x,
-        remaining_4x: plan.unlimited ? -1 : user.quota_4x,
-        unlimited: plan.unlimited,
-        quota_reset_date: user.quota_reset_date
+        plan: plan?.name || 'free',
+        balance: totalCredits,
+        unlimited: plan?.monthly_credits === -1,
+        total_usage: stats?.count || 0
       });
-    }
-
-    // Upgrade user (simplified - in production use Stripe)
-    if (url.pathname === "/api/upgrade") {
-      if (request.method === "POST") {
-        try {
-          const body = await request.json();
-          const { uid } = body;
-
-          if (!uid) {
-            return corsResponse({ error: "uid required" }, 400);
-          }
-
-          await env.DB.prepare(`
-            UPDATE users SET plan = 'pro', quota_2x = -1, quota_4x = -1 WHERE id = ?
-          `).bind(uid).run();
-
-          return corsResponse({ success: true, plan: 'pro' });
-        } catch (e) {
-          return corsResponse({ error: "Failed to upgrade" }, 500);
-        }
-      }
-    }
-
-    // Get user usage history
-    if (url.pathname === "/api/user/history") {
-      const uid = url.searchParams.get("uid");
-      const limit = parseInt(url.searchParams.get("limit") || "10");
-      
-      if (!uid) {
-        return corsResponse({ error: "uid required" }, 400);
-      }
-
-      const history = await env.DB.prepare(`
-        SELECT * FROM usage_logs 
-        WHERE user_id = ? 
-        ORDER BY created_at DESC 
-        LIMIT ?
-      `).bind(uid, limit).all();
-
-      return corsResponse(history.results);
     }
 
     // Record usage
     if (url.pathname === "/api/record-usage") {
-      if (request.method === "POST") {
-        try {
-          const body = await request.json();
-          const { user_id, filename, original_size, original_width, original_height, enhanced_width, enhanced_height, scale } = body;
+      if (request.method !== "POST") return cors({ error: "Method not allowed" }, 405);
+      try {
+        const { user_id, filename, original_size, original_width, original_height, enhanced_width, enhanced_height, scale } = await request.json();
+        if (!user_id) return cors({ error: "user_id required" }, 400);
 
-          if (!user_id) {
-            return corsResponse({ error: "user_id required" }, 400);
-          }
+        await env.DB.prepare(`
+          INSERT INTO usage_logs (user_id, filename, original_size, original_width, original_height, enhanced_width, enhanced_height, scale)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `).bind(user_id, filename || 'untitled', original_size || 0, original_width || 0, original_height || 0, enhanced_width || 0, enhanced_height || 0, scale || 2).run();
 
-          await env.DB.prepare(`
-            INSERT INTO usage_logs (user_id, filename, original_size, original_width, original_height, enhanced_width, enhanced_height, scale)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-          `).bind(
-            user_id,
-            filename || 'untitled',
-            original_size || 0,
-            original_width || 0,
-            original_height || 0,
-            enhanced_width || 0,
-            enhanced_height || 0,
-            scale || 2
-          ).run();
-
-          return corsResponse({ success: true });
-        } catch (e) {
-          return corsResponse({ error: "Failed to record usage" }, 500);
-        }
-      }
+        return cors({ success: true });
+      } catch (e) { return cors({ error: "Failed" }, 500); }
     }
 
-    // Get user statistics
+    // Get user history
+    if (url.pathname === "/api/user/history") {
+      const uid = url.searchParams.get("uid");
+      const limit = parseInt(url.searchParams.get("limit") || "10");
+      if (!uid) return cors({ error: "uid required" }, 400);
+
+      const history = await env.DB.prepare(`
+        SELECT * FROM usage_logs WHERE user_id = ? ORDER BY created_at DESC LIMIT ?
+      `).bind(uid, limit).all();
+
+      return cors(history.results);
+    }
+
+    // Get user stats
     if (url.pathname === "/api/user/stats") {
       const uid = url.searchParams.get("uid");
-      
-      if (!uid) {
-        return corsResponse({ error: "uid required" }, 400);
-      }
+      if (!uid) return cors({ error: "uid required" }, 400);
 
-      const totalResult = await env.DB.prepare(
-        "SELECT COUNT(*) as count FROM usage_logs WHERE user_id = ?"
-      ).bind(uid).first();
+      const total = await env.DB.prepare("SELECT COUNT(*) as count FROM usage_logs WHERE user_id = ?").bind(uid).first();
+      const week = await env.DB.prepare("SELECT COUNT(*) as count FROM usage_logs WHERE user_id = ? AND created_at >= datetime('now', '-7 days')").bind(uid).first();
 
-      const todayResult = await env.DB.prepare(
-        "SELECT COUNT(*) as count FROM usage_logs WHERE user_id = ? AND date(created_at) = date('now')"
-      ).bind(uid).first();
-
-      const weekResult = await env.DB.prepare(
-        "SELECT COUNT(*) as count FROM usage_logs WHERE user_id = ? AND created_at >= datetime('now', '-7 days')"
-      ).bind(uid).first();
-
-      const pixelsResult = await env.DB.prepare(
-        "SELECT SUM(original_width * original_height) as total_original_pixels, SUM(enhanced_width * enhanced_height) as total_enhanced_pixels FROM usage_logs WHERE user_id = ?"
-      ).bind(uid).first();
-
-      return corsResponse({
-        total_usage: totalResult?.count || 0,
-        today_usage: todayResult?.count || 0,
-        week_usage: weekResult?.count || 0,
-        total_original_pixels: pixelsResult?.total_original_pixels || 0,
-        total_enhanced_pixels: pixelsResult?.total_enhanced_pixels || 0,
-      });
+      return cors({ total_usage: total?.count || 0, week_usage: week?.count || 0 });
     }
 
-    // Get all users (admin)
-    if (url.pathname === "/api/users") {
-      const result = await env.DB.prepare(
-        "SELECT id, email, name, plan, first_login, last_login, usage_count FROM users ORDER BY last_login DESC LIMIT 100"
-      ).all();
-      return corsResponse(result.results);
+    // Simulate purchase (in production, this would be after PayPal/Stripe webhook)
+    if (url.pathname === "/api/purchase") {
+      if (request.method !== "POST") return cors({ error: "Method not allowed" }, 405);
+      try {
+        const { uid, package_index } = await request.json();
+        if (!uid) return cors({ error: "uid required" }, 400);
+
+        const pkg = CREDIT_PACKAGES[package_index];
+        if (!pkg) return cors({ error: "Invalid package" }, 400);
+
+        // Add credits
+        await env.DB.prepare(`
+          INSERT INTO credits (user_id, amount, plan_type, expires_at)
+          VALUES (?, ?, ?, datetime('now', '+' || ? || ' days'))
+        `).bind(uid, pkg.credits, pkg.name, pkg.days).run();
+
+        return cors({ success: true, credits: pkg.credits, package: pkg.name });
+      } catch (e) { return cors({ error: "Failed" }, 500); }
     }
 
-    return corsResponse({ 
-      message: "Image Enhancement API",
-      endpoints: ["/api/plans", "/api/check-quota", "/api/upgrade", "/api/user", "/api/user/stats", "/api/user/history"]
-    });
+    // Simulate subscription
+    if (url.pathname === "/api/subscribe") {
+      if (request.method !== "POST") return cors({ error: "Method not allowed" }, 405);
+      try {
+        const { uid, plan } = await request.json();
+        if (!uid) return cors({ error: "uid required" }, 400);
+
+        if (!PLANS[plan as keyof typeof PLANS]) return cors({ error: "Invalid plan" }, 400);
+
+        await env.DB.prepare(`
+          INSERT INTO subscriptions (user_id, plan, status, expires_at)
+          VALUES (?, ?, 'active', datetime('now', '+30 days'))
+          ON CONFLICT(user_id) DO UPDATE SET plan = excluded.plan, status = 'active', expires_at = datetime('now', '+30 days')
+        `).bind(uid, plan).run();
+
+        return cors({ success: true, plan: PLANS[plan as keyof typeof PLANS].name });
+      } catch (e) { return cors({ error: "Failed" }, 500); }
+    }
+
+    // Health check
+    if (url.pathname === "/health") {
+      return cors({ status: "ok", plans: PLANS, packages: CREDIT_PACKAGES });
+    }
+
+    return cors({ message: "Image Enhancement API" });
   },
 } satisfies ExportedHandler<Env>;
