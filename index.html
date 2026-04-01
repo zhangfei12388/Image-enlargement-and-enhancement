@@ -39,13 +39,29 @@
       display: inline-block;
     }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    /* Enhanced image container - show actual size comparison */
+    .enhanced-container {
+      position: relative;
+      overflow: visible !important;
+    }
+    .enhanced-container img {
+      max-width: none !important;
+      width: auto !important;
+      height: auto !important;
+    }
+    .size-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-weight: 600;
+    }
   </style>
 </head>
 <body class="min-h-screen bg-gray-50">
   <div id="app" class="min-h-screen flex flex-col">
     <!-- Header -->
     <header class="gradient-bg text-white py-6 shadow-lg">
-      <div class="max-w-4xl mx-auto px-4 flex items-center justify-between">
+      <div class="max-w-6xl mx-auto px-4 flex items-center justify-between">
         <div>
           <h1 class="text-2xl font-bold">🤖 AI Image Enlargement & Enhancement</h1>
           <p class="text-sm opacity-80 mt-1">Powered by Cloudflare Workers + Canvas</p>
@@ -74,7 +90,7 @@
     </div>
 
     <!-- Main Content -->
-    <main id="mainContent" class="flex-1 max-w-4xl mx-auto px-4 py-8 w-full hidden">
+    <main id="mainContent" class="flex-1 mx-auto px-4 py-8 w-full max-w-6xl hidden">
       <div id="uploadZone" class="upload-zone border-2 border-dashed border-gray-300 rounded-xl p-12 text-center cursor-pointer bg-white">
         <input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp" class="hidden">
         <div class="text-5xl mb-4">📤</div>
@@ -84,9 +100,12 @@
 
       <div id="controls" class="hidden mt-6 space-y-6">
         <div class="bg-white rounded-xl shadow-sm p-6">
-          <h3 class="text-lg font-semibold text-gray-700 mb-4">Original Image</h3>
-          <div class="bg-gray-100 rounded-lg p-4 flex items-center justify-center">
-            <img id="preview" class="max-w-full max-h-80 object-contain" alt="Preview">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-gray-700">Original Image</h3>
+            <span id="originalSizeLabel" class="text-sm text-gray-500">-</span>
+          </div>
+          <div class="bg-gray-100 rounded-lg p-4 flex items-center justify-center overflow-auto">
+            <img id="preview" class="max-w-full object-contain" alt="Preview">
           </div>
         </div>
 
@@ -130,24 +149,57 @@
         </div>
       </div>
 
+      <!-- Results Section -->
       <div id="results" class="hidden mt-6 space-y-6">
         <div class="bg-white rounded-xl shadow-sm p-6">
           <h3 class="text-lg font-semibold text-gray-700 mb-4">🎉 Enhancement Complete!</h3>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <p class="text-sm text-gray-500 mb-2">Original</p>
-              <div class="rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center">
-                <img id="originalResult" class="max-w-full object-contain" alt="Original">
+          
+          <!-- Size Comparison Bar -->
+          <div class="mb-6 p-4 bg-gradient-to-r from-gray-50 to-purple-50 rounded-xl border border-gray-200">
+            <div class="flex items-center justify-center gap-6 flex-wrap">
+              <div class="text-center">
+                <p class="text-xs text-gray-500 uppercase tracking-wide">Original</p>
+                <p id="resultOriginalSize" class="text-lg font-bold text-gray-600">-</p>
               </div>
-            </div>
-            <div>
-              <p class="text-sm text-gray-500 mb-2">✨ Enhanced</p>
-              <div class="rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center">
-                <img id="enhancedResult" class="max-w-full object-contain" alt="Enhanced">
+              <div class="text-2xl text-purple-400">→</div>
+              <div class="text-center">
+                <p class="text-xs text-gray-500 uppercase tracking-wide">Enhanced</p>
+                <p id="resultEnhancedSize" class="text-lg font-bold text-purple-600">-</p>
+              </div>
+              <div class="size-badge bg-purple-100 text-purple-700">
+                <span id="scaleBadge">2x</span> Upscale
+              </div>
+              <div class="size-badge bg-green-100 text-green-700">
+                ↑ <span id="pixelIncrease">400%</span> Pixels
               </div>
             </div>
           </div>
-          <p id="methodNote" class="text-xs text-gray-400 mt-2 text-center"></p>
+
+          <!-- Side by Side Comparison -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <p class="text-sm font-medium text-gray-500">📷 Original</p>
+                <span id="originalDimensions" class="text-xs text-gray-400">-</span>
+              </div>
+              <div class="rounded-lg bg-gray-100 p-4 flex items-center justify-center min-h-48">
+                <img id="originalResult" class="max-w-full object-contain" alt="Original">
+              </div>
+            </div>
+            <div class="enhanced-container">
+              <div class="flex items-center justify-between mb-2">
+                <p class="text-sm font-medium text-purple-600">✨ Enhanced</p>
+                <span id="enhancedDimensions" class="text-xs text-purple-400 font-medium">-</span>
+              </div>
+              <div class="rounded-lg bg-purple-50 p-4 flex items-center justify-center min-h-48 border-2 border-purple-200">
+                <img id="enhancedResult" class="object-contain" alt="Enhanced">
+              </div>
+            </div>
+          </div>
+          
+          <p id="methodNote" class="text-xs text-gray-400 mt-4 text-center">
+            Method: High-quality Canvas Bicubic Interpolation
+          </p>
         </div>
 
         <div class="bg-white rounded-xl shadow-sm p-6">
@@ -156,7 +208,7 @@
               📥 Download Enhanced Image
             </button>
             <button id="resetBtn" class="py-3 px-6 rounded-lg font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors">
-              Process Another
+              🔄 Process Another
             </button>
           </div>
         </div>
@@ -207,11 +259,26 @@
     const errorText = document.getElementById('errorText');
     const originalResult = document.getElementById('originalResult');
     const enhancedResult = document.getElementById('enhancedResult');
-    const methodNote = document.getElementById('methodNote');
+    const originalSizeLabel = document.getElementById('originalSizeLabel');
+    const resultOriginalSize = document.getElementById('resultOriginalSize');
+    const resultEnhancedSize = document.getElementById('resultEnhancedSize');
+    const originalDimensions = document.getElementById('originalDimensions');
+    const enhancedDimensions = document.getElementById('enhancedDimensions');
+    const scaleBadge = document.getElementById('scaleBadge');
+    const pixelIncrease = document.getElementById('pixelIncrease');
 
     let currentFile = null;
+    let originalWidth = 0;
+    let originalHeight = 0;
     let enhancedDataUrl = null;
     let currentUser = null;
+
+    // Format file size
+    function formatSize(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+    }
 
     // Record user login to D1 database
     async function recordUserLogin(user) {
@@ -248,8 +315,6 @@
             </div>
           </div>`;
         document.getElementById('logoutBtn')?.addEventListener('click', () => auth.signOut());
-        
-        // Record login
         recordUserLogin(user);
       } else {
         currentUser = null;
@@ -283,16 +348,24 @@
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
       
-      canvas.width = img.naturalWidth * scale;
-      canvas.height = img.naturalHeight * scale;
+      const newWidth = img.naturalWidth * scale;
+      const newHeight = img.naturalHeight * scale;
+      
+      canvas.width = newWidth;
+      canvas.height = newHeight;
       
       // Use high-quality bicubic interpolation
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = 'high';
       
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      // Draw scaled image
+      ctx.drawImage(img, 0, 0, newWidth, newHeight);
       
-      return canvas.toDataURL('image/png');
+      return {
+        dataUrl: canvas.toDataURL('image/png'),
+        width: newWidth,
+        height: newHeight
+      };
     }
 
     // Image Processing
@@ -324,9 +397,26 @@
     function handleFile(file) {
       if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) { showError('Please upload a JPG, PNG, or WebP image.'); return; }
       if (file.size > 10 * 1024 * 1024) { showError('File size must be less than 10MB.'); return; }
-      hideError(); currentFile = file;
+      hideError(); 
+      currentFile = file;
+      
       const reader = new FileReader();
-      reader.onload = (e) => { preview.src = e.target.result; controls.classList.remove('hidden'); results.classList.add('hidden'); updateStyles(); };
+      reader.onload = (e) => { 
+        preview.src = e.target.result;
+        
+        // Get original dimensions
+        const img = new Image();
+        img.onload = () => {
+          originalWidth = img.naturalWidth;
+          originalHeight = img.naturalHeight;
+          originalSizeLabel.textContent = `${originalWidth} × ${originalHeight} px (${formatSize(file.size)})`;
+        };
+        img.src = e.target.result;
+        
+        controls.classList.remove('hidden'); 
+        results.classList.add('hidden'); 
+        updateStyles(); 
+      };
       reader.readAsDataURL(file);
     }
 
@@ -353,14 +443,32 @@
         showProgress(40, 'Upscaling...');
 
         // Use browser-side Canvas upscaling
-        enhancedDataUrl = upscaleImage(img, scale);
+        const result = upscaleImage(img, scale);
+        enhancedDataUrl = result.dataUrl;
 
-        showProgress(80, 'Finalizing...');
+        showProgress(80, 'Calculating...');
+
+        // Calculate sizes
+        const originalPixels = originalWidth * originalHeight;
+        const enhancedPixels = result.width * result.height;
+        const pixelRatio = (enhancedPixels / originalPixels * 100).toFixed(0);
+
+        // Update UI
+        resultOriginalSize.textContent = `${originalWidth}×${originalHeight} (${formatSize(currentFile.size)})`;
+        resultEnhancedSize.textContent = `${result.width}×${result.height}`;
+        originalDimensions.textContent = `${originalWidth}×${originalHeight}`;
+        enhancedDimensions.textContent = `${result.width}×${result.height}`;
+        scaleBadge.textContent = `${scale}x`;
+        pixelIncrease.textContent = `${pixelRatio}%`;
 
         // Show results
         originalResult.src = preview.src;
         enhancedResult.src = enhancedDataUrl;
-        methodNote.textContent = 'Method: High-quality Canvas Bicubic Interpolation';
+        
+        // Set enhanced image to actual size
+        enhancedResult.style.width = result.width + 'px';
+        enhancedResult.style.height = result.height + 'px';
+        
         controls.classList.add('hidden');
         results.classList.remove('hidden');
         
@@ -386,7 +494,11 @@
     function reset() { 
       currentFile = null; 
       enhancedDataUrl = null; 
+      originalWidth = 0;
+      originalHeight = 0;
       fileInput.value = ''; 
+      enhancedResult.style.width = '';
+      enhancedResult.style.height = '';
       controls.classList.add('hidden'); 
       results.classList.add('hidden'); 
       hideError(); 
