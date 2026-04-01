@@ -12,10 +12,8 @@
     .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
     .gradient-text { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
     .pro-gradient { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
-    .spinner { border: 3px solid #f3f3f3; border-top: 3px solid #667eea; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; }
+    .spinner { border: 3px solid #f3f3f3; border-top: 3px solid #667eea; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; display: inline-block; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-    .pricing-card { transition: all 0.3s; }
-    .pricing-card:hover { transform: translateY(-4px); box-shadow: 0 20px 40px rgba(0,0,0,0.1); }
   </style>
 </head>
 <body class="min-h-screen bg-gray-50">
@@ -35,11 +33,15 @@
         <div class="text-6xl mb-6">🎁</div>
         <h2 class="text-3xl font-bold mb-2">Welcome!</h2>
         <p class="text-gray-600 mb-6">Sign up and get <span class="gradient-text font-bold text-xl">3 FREE credits</span></p>
-        <button id="googleLoginBtn" class="w-full py-4 px-6 rounded-xl font-medium bg-white border-2 shadow-lg hover:shadow-xl transition flex items-center justify-center gap-3">
-          <svg class="w-6 h-6" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-          Sign up with Google
+        <button id="googleLoginBtn" onclick="handleGoogleLogin()" class="w-full py-4 px-6 rounded-xl font-medium bg-white border-2 border-gray-200 shadow-lg hover:shadow-xl hover:border-gray-300 transition flex items-center justify-center gap-3 cursor-pointer">
+          <svg class="w-6 h-6" viewBox="0 0 24 24">
+            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+          </svg>
+          <span id="loginBtnText">Sign up with Google</span>
         </button>
-        <p class="text-sm text-gray-400 mt-4">No credit card required</p>
         <p id="loginError" class="hidden text-red-500 text-sm mt-4"></p>
       </div>
     </div>
@@ -126,37 +128,37 @@
     <div id="pricingPage" class="hidden max-w-5xl mx-auto px-4 py-12">
       <div class="text-center mb-12">
         <h2 class="text-4xl font-bold mb-4">Simple, Transparent Pricing</h2>
-        <p class="text-xl text-gray-600">Pay only for what you use. No hidden fees.</p>
+        <p class="text-xl text-gray-600">Pay only for what you use</p>
       </div>
 
       <div class="bg-purple-50 rounded-2xl p-6 mb-12 text-center">
         <p class="text-lg font-medium">💡 <strong>1 credit = 1 image enhancement</strong></p>
-        <p class="text-gray-600 mt-2">2x upscale = 1 credit • 4x upscale = 2 credits</p>
+        <p class="text-gray-600 mt-2">2x = 1 credit • 4x = 2 credits</p>
       </div>
 
       <div class="mb-12">
-        <h3 class="text-2xl font-bold mb-6 text-center">💰 Pay-As-You-Go Packages</h3>
+        <h3 class="text-2xl font-bold mb-6 text-center">💰 Pay-As-You-Go</h3>
         <div class="grid md:grid-cols-3 gap-6">
-          <div class="pricing-card bg-white rounded-2xl p-6 shadow-lg border-2 border-gray-200">
+          <div class="bg-white rounded-2xl p-6 shadow-lg border-2 border-gray-200">
             <h4 class="text-xl font-bold text-center">Starter</h4>
             <p class="text-4xl font-bold text-center mt-4">$0.50</p>
-            <p class="text-gray-500 text-center">30 credits • $0.017/credit</p>
-            <ul class="mt-6 space-y-2 text-sm"><li>✓ 30 enhancements</li><li>✓ Valid 30 days</li><li>✓ All upscale options</li></ul>
+            <p class="text-gray-500 text-center">30 credits</p>
+            <ul class="mt-6 space-y-2 text-sm"><li>✓ 30 enhancements</li><li>✓ Valid 30 days</li></ul>
             <button onclick="currentUser && purchasePackage(0)" class="w-full mt-6 py-3 rounded-xl border-2 border-gray-300">Select</button>
           </div>
-          <div class="pricing-card bg-white rounded-2xl p-6 shadow-xl border-2 border-purple-400 relative">
+          <div class="bg-white rounded-2xl p-6 shadow-xl border-2 border-purple-400 relative">
             <div class="absolute -top-3 left-1/2 -translate-x-1/2 bg-purple-600 text-white px-4 py-1 rounded-full text-sm">BEST VALUE</div>
             <h4 class="text-xl font-bold text-center gradient-text mt-2">Medium</h4>
             <p class="text-4xl font-bold text-center mt-4">$4.00</p>
-            <p class="text-gray-500 text-center">500 credits • $0.008/credit</p>
-            <ul class="mt-6 space-y-2 text-sm"><li>✓ 500 enhancements</li><li>✓ Valid 90 days</li><li>✓ Priority support</li></ul>
+            <p class="text-gray-500 text-center">500 credits</p>
+            <ul class="mt-6 space-y-2 text-sm"><li>✓ 500 enhancements</li><li>✓ Valid 90 days</li></ul>
             <button onclick="currentUser && purchasePackage(1)" class="w-full mt-6 py-3 rounded-xl font-bold text-white gradient-bg">Select</button>
           </div>
-          <div class="pricing-card bg-white rounded-2xl p-6 shadow-lg border-2 border-gray-200">
+          <div class="bg-white rounded-2xl p-6 shadow-lg border-2 border-gray-200">
             <h4 class="text-xl font-bold text-center">Large</h4>
             <p class="text-4xl font-bold text-center mt-4">$20.00</p>
-            <p class="text-gray-500 text-center">1000 credits • $0.020/credit</p>
-            <ul class="mt-6 space-y-2 text-sm"><li>✓ 1000 enhancements</li><li>✓ Valid 180 days</li><li>✓ Best for teams</li></ul>
+            <p class="text-gray-500 text-center">1000 credits</p>
+            <ul class="mt-6 space-y-2 text-sm"><li>✓ 1000 enhancements</li><li>✓ Valid 180 days</li></ul>
             <button onclick="currentUser && purchasePackage(2)" class="w-full mt-6 py-3 rounded-xl border-2 border-gray-300">Select</button>
           </div>
         </div>
@@ -165,40 +167,30 @@
       <div class="mb-12">
         <h3 class="text-2xl font-bold mb-6 text-center">📅 Monthly Subscriptions</h3>
         <div class="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto">
-          <div class="pricing-card bg-white rounded-2xl p-6 shadow border-2 border-gray-200">
+          <div class="bg-white rounded-2xl p-6 shadow border-2 border-gray-200">
             <h4 class="text-xl font-bold text-center">Free</h4>
             <p class="text-4xl font-bold text-center mt-4">$0</p>
-            <p class="text-gray-500 text-center">forever</p>
-            <ul class="mt-6 space-y-2 text-sm"><li>✓ 3 welcome credits</li><li>✓ Basic features</li></ul>
-            <div class="mt-6 py-3 rounded-xl bg-gray-100 text-center text-gray-500">Current</div>
+            <ul class="mt-6 space-y-2 text-sm"><li>✓ 3 welcome credits</li></ul>
+            <div class="mt-6 py-3 rounded-xl bg-gray-100 text-center">Current</div>
           </div>
-          <div class="pricing-card bg-white rounded-2xl p-6 shadow border-2 border-blue-400">
+          <div class="bg-white rounded-2xl p-6 shadow border-2 border-blue-400">
             <h4 class="text-xl font-bold text-center text-blue-600">Basic</h4>
-            <p class="text-4xl font-bold text-center mt-4">$4.90<span class="text-lg font-normal">/mo</span></p>
-            <ul class="mt-6 space-y-2 text-sm"><li>✓ 500 credits/month</li><li>✓ Auto-refill</li></ul>
+            <p class="text-4xl font-bold text-center mt-4">$4.90<span class="text-lg">/mo</span></p>
+            <ul class="mt-6 space-y-2 text-sm"><li>✓ 500 credits/month</li></ul>
             <button onclick="currentUser && subscribe('basic')" class="w-full mt-6 py-3 rounded-xl font-bold text-white bg-blue-500">Subscribe</button>
           </div>
-          <div class="pricing-card bg-white rounded-2xl p-6 shadow-xl border-2 border-purple-400 relative">
+          <div class="bg-white rounded-2xl p-6 shadow-xl border-2 border-purple-400 relative">
             <div class="absolute -top-3 left-1/2 -translate-x-1/2 pro-gradient text-white px-4 py-1 rounded-full text-sm">POPULAR</div>
             <h4 class="text-xl font-bold text-center gradient-text mt-2">Pro</h4>
-            <p class="text-4xl font-bold text-center mt-4">$9.90<span class="text-lg font-normal">/mo</span></p>
-            <ul class="mt-6 space-y-2 text-sm"><li>✓ <strong>Unlimited</strong> credits</li><li>✓ No restrictions</li><li>✓ Priority queue</li></ul>
+            <p class="text-4xl font-bold text-center mt-4">$9.90<span class="text-lg">/mo</span></p>
+            <ul class="mt-6 space-y-2 text-sm"><li>✓ <strong>Unlimited</strong> credits</li></ul>
             <button onclick="currentUser && subscribe('pro')" class="w-full mt-6 py-3 rounded-xl font-bold text-white pro-gradient">Subscribe</button>
           </div>
         </div>
       </div>
 
       <div class="text-center py-8 border-t">
-        <p class="text-gray-500 mb-4">💳 Secure payment via PayPal (Stripe coming soon)</p>
-      </div>
-
-      <div class="mt-12">
-        <h3 class="text-2xl font-bold mb-6 text-center">❓ FAQ</h3>
-        <div class="space-y-4 max-w-3xl mx-auto">
-          <details class="bg-white rounded-xl p-4 shadow"><summary class="font-medium cursor-pointer">What is a credit?</summary><p class="text-gray-600 mt-2">One credit equals one image enhancement. 2x upscale = 1 credit, 4x upscale = 2 credits.</p></details>
-          <details class="bg-white rounded-xl p-4 shadow"><summary class="font-medium cursor-pointer">Do credits expire?</summary><p class="text-gray-600 mt-2">Credit packages expire after 30-180 days. Monthly subscription credits refresh each month.</p></details>
-          <details class="bg-white rounded-xl p-4 shadow"><summary class="font-medium cursor-pointer">What's the difference?</summary><p class="text-gray-600 mt-2">Packages = one-time purchase. Subscriptions = auto-renewing monthly credits.</p></details>
-        </div>
+        <p class="text-gray-500">💳 Secure payment via PayPal (Stripe coming soon)</p>
       </div>
     </div>
 
@@ -206,49 +198,225 @@
   </div>
 
   <script>
-    const firebaseConfig={apiKey:"AIzaSyCu0oQiU0PagS5ujK-cp0k1Olp6pldgT8Q",authDomain:"image-enhancer-auth-1c566.firebaseapp.com",projectId:"image-enhancer-auth-1c566",storageBucket:"image-enhancer-auth-1c566.firebasestorage.app",messagingSenderId:"295581624927",appId:"1:295581624927:web:467dfb1b27462a73f049ea"};
+    // Firebase Config
+    const firebaseConfig = {
+      apiKey: "AIzaSyCu0oQiU0PagS5ujK-cp0k1Olp6pldgT8Q",
+      authDomain: "image-enhancer-auth-1c566.firebaseapp.com",
+      projectId: "image-enhancer-auth-1c566",
+      storageBucket: "image-enhancer-auth-1c566.firebasestorage.app",
+      messagingSenderId: "295581624927",
+      appId: "1:295581624927:web:467dfb1b27462a73f049ea"
+    };
+    
     firebase.initializeApp(firebaseConfig);
-    const auth=firebase.auth(),WORKER_URL='https://image-enhancement-worker.feiz45607.workers.dev';
-    const packages=[{name:'Starter',credits:30,price:0.5},{name:'Medium',credits:500,price:4},{name:'Large',credits:1000,price:20}];
-    const loginOverlay=document.getElementById('loginOverlay'),profileModal=document.getElementById('profileModal'),mainContent=document.getElementById('mainContent'),pricingPage=document.getElementById('pricingPage'),uploadZone=document.getElementById('uploadZone'),fileInput=document.getElementById('fileInput'),controls=document.getElementById('controls'),preview=document.getElementById('preview'),results=document.getElementById('results'),progressBar=document.getElementById('progressBar'),statusText=document.getElementById('statusText'),errorContainer=document.getElementById('errorContainer'),originalResult=document.getElementById('originalResult'),enhancedResult=document.getElementById('enhancedResult'),originalSizeLabel=document.getElementById('originalSizeLabel'),resultOriginalSize=document.getElementById('resultOriginalSize'),resultEnhancedSize=document.getElementById('resultEnhancedSize');
-    let currentUser=null,balance=3,isUnlimited=false,currentFile=null,currentScale=2;
+    const auth = firebase.auth();
+    const WORKER_URL = 'https://image-enhancement-worker.feiz45607.workers.dev';
 
-    function showPage(p){mainContent.classList.toggle('hidden',p!='home');pricingPage.classList.toggle('hidden',p!='pricing');}
-    function closeProfile(){profileModal.classList.add('hidden');}
+    const packages = [{name:'Starter',credits:30,price:0.5},{name:'Medium',credits:500,price:4},{name:'Large',credits:1000,price:20}];
+    
+    let currentUser = null, balance = 3, isUnlimited = false, currentFile = null;
 
-    async function recordLogin(u){await fetch(WORKER_URL+'/api/record-login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({uid:u.uid,email:u.email,name:u.displayName,picture:u.photoURL})}).catch(()=>{});}
-    async function loadUserData(){if(!currentUser)return;try{const[u,s]=await Promise.all([fetch(WORKER_URL+'/api/user?uid='+currentUser.uid),fetch(WORKER_URL+'/api/user/stats?uid='+currentUser.uid)]);const ud=await u.json(),st=await s.json();document.getElementById('profileAvatar').src=ud.picture||'https://ui-avatars.com/api/?name='+encodeURIComponent(ud.name||ud.email)+'&bg=667eea&color=fff';document.getElementById('profileName').textContent=ud.name||'User';document.getElementById('profileEmail').textContent=ud.email;balance=ud.balance;isUnlimited=ud.unlimited;document.getElementById('balanceDisplay').textContent=isUnlimited?'∞':balance;document.getElementById('planBadge').textContent=(ud.plan||'free').toUpperCase();document.getElementById('totalUsageDisplay').textContent=st.total_usage||0;document.getElementById('weekUsageDisplay').textContent=st.week_usage||0;}catch(e){}}
-    async function consumeCredit(c=1){try{if(isUnlimited)return true;const r=await fetch(WORKER_URL+'/api/consume',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({uid:currentUser.uid})}),d=await r.json();if(d.purchase_required){alert('No credits! Please buy more.');return false;}return d.success||false;}catch(){return true;}}
-    async function recordUsage(d){await fetch(WORKER_URL+'/api/record-usage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user_id:currentUser.uid,...d})}).catch(()=>{});}
+    function showPage(p) {
+      document.getElementById('mainContent').classList.toggle('hidden', p!='home');
+      document.getElementById('pricingPage').classList.toggle('hidden', p!='pricing');
+    }
+    function closeProfile() { document.getElementById('profileModal').classList.add('hidden'); }
 
-    function renderAuthUI(u){if(u){currentUser=u;loginOverlay.classList.add('hidden');showPage('home');const a=u.photoURL||'https://ui-avatars.com/api/?name='+encodeURIComponent(u.displayName||u.email)+'&bg=667eea&color=fff',n=u.displayName||u.email.split('@')[0];document.getElementById('authSection').innerHTML='<button onclick="profileModal.classList.remove(\\'hidden\\');loadUserData();" class="flex items-center gap-2"><img src="'+a+'" class="w-8 h-8 rounded-full border border-white/50"><span class="font-medium">'+n+'</span></button>';recordLogin(u);}else{currentUser=null;loginOverlay.classList.remove('hidden');showPage('home');document.getElementById('authSection').innerHTML='';}}
+    async function handleGoogleLogin() {
+      const btn = document.getElementById('googleLoginBtn');
+      const btnText = document.getElementById('loginBtnText');
+      const errorEl = document.getElementById('loginError');
+      
+      errorEl.classList.add('hidden');
+      btn.disabled = true;
+      btnText.innerHTML = '<span class="spinner"></span> Signing in...';
+      
+      try {
+        const provider = new firebase.auth.GoogleAuthProvider();
+        const result = await auth.signInWithPopup(provider);
+        console.log('Login success:', result.user.email);
+      } catch (error) {
+        console.error('Login error:', error);
+        errorEl.textContent = error.message || 'Login failed. Please try again.';
+        errorEl.classList.remove('hidden');
+        btnText.textContent = 'Sign up with Google';
+      }
+      btn.disabled = false;
+    }
 
-    async function purchasePackage(idx){const pkg=packages[idx];if(confirm('Buy '+pkg.name+'?\n'+pkg.credits+' credits for $'+pkg.price+'\n\n(Demo)')){await fetch(WORKER_URL+'/api/purchase',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({uid:currentUser.uid,package_index:idx})});alert('Purchased '+pkg.credits+' credits!');loadUserData();}}
-    async function subscribe(plan){const price=plan==='basic'?'4.90':'9.90';if(confirm('Subscribe to '+plan.toUpperCase()+'?\n$'+price+'/month\n\n(Demo)')){await fetch(WORKER_URL+'/api/subscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({uid:currentUser.uid,plan})});alert('Subscribed!');loadUserData();}}
-    function doLogout(){closeProfile();auth.signOut();}
+    async function recordLogin(user) {
+      try {
+        await fetch(WORKER_URL + '/api/record-login', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({uid: user.uid, email: user.email, name: user.displayName, picture: user.photoURL})
+        });
+      } catch (e) { console.log('Record login failed'); }
+    }
 
-    document.getElementById('googleLoginBtn').addEventListener('click',async()=>{document.getElementById('loginError').classList.add('hidden');document.getElementById('googleLoginBtn').disabled=true;document.getElementById('googleLoginBtn').innerHTML='<span class="spinner"></span>';try{await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());}catch(e){document.getElementById('loginError').textContent=e.message;document.getElementById('loginError').classList.remove('hidden');document.getElementById('googleLoginBtn').disabled=false;document.getElementById('googleLoginBtn').innerHTML='Sign up with Google';}});
+    async function loadUserData() {
+      if (!currentUser) return;
+      try {
+        const [userRes, statsRes] = await Promise.all([
+          fetch(WORKER_URL + '/api/user?uid=' + currentUser.uid),
+          fetch(WORKER_URL + '/api/user/stats?uid=' + currentUser.uid)
+        ]);
+        const user = await userRes.json();
+        const stats = await statsRes.json();
+        
+        document.getElementById('profileAvatar').src = user.picture || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(user.name || user.email) + '&bg=667eea&color=fff';
+        document.getElementById('profileName').textContent = user.name || 'User';
+        document.getElementById('profileEmail').textContent = user.email;
+        balance = user.balance || 0;
+        isUnlimited = user.unlimited || false;
+        document.getElementById('balanceDisplay').textContent = isUnlimited ? '∞' : balance;
+        document.getElementById('planBadge').textContent = (user.plan || 'free').toUpperCase();
+        document.getElementById('totalUsageDisplay').textContent = stats.total_usage || 0;
+        document.getElementById('weekUsageDisplay').textContent = stats.week_usage || 0;
+      } catch (e) { console.error(e); }
+    }
+
+    function renderAuthUI(user) {
+      if (user) {
+        currentUser = user;
+        document.getElementById('loginOverlay').classList.add('hidden');
+        showPage('home');
+        const avatar = user.photoURL || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(user.displayName || user.email) + '&bg=667eea&color=fff';
+        const name = user.displayName || user.email.split('@')[0];
+        document.getElementById('authSection').innerHTML = '<button onclick="document.getElementById(\'profileModal\').classList.remove(\'hidden\');loadUserData();" class="flex items-center gap-2"><img src="' + avatar + '" class="w-8 h-8 rounded-full border border-white/50"><span class="font-medium">' + name + '</span></button>';
+        recordLogin(user);
+      } else {
+        currentUser = null;
+        document.getElementById('loginOverlay').classList.remove('hidden');
+        showPage('home');
+        document.getElementById('authSection').innerHTML = '';
+        document.getElementById('loginBtnText').textContent = 'Sign up with Google';
+      }
+    }
+
     auth.onAuthStateChanged(renderAuthUI);
 
-    function upscaleImage(img,scale){const c=document.createElement('canvas'),ctx=c.getContext('2d');c.width=img.naturalWidth*scale;c.height=img.naturalHeight*scale;ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';ctx.drawImage(img,0,0,c.width,c.height);return{dataUrl:c.toDataURL('image/png'),width:c.width,height:c.height};}
+    async function purchasePackage(idx) {
+      const pkg = packages[idx];
+      if (confirm('Buy ' + pkg.name + '?\n' + pkg.credits + ' credits for $' + pkg.price + '\n\n(Demo mode)')) {
+        await fetch(WORKER_URL + '/api/purchase', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({uid: currentUser.uid, package_index: idx})
+        });
+        alert('Purchased ' + pkg.credits + ' credits!');
+        loadUserData();
+      }
+    }
 
-    uploadZone.addEventListener('click',()=>fileInput.click());
-    uploadZone.addEventListener('dragover',e=>{e.preventDefault();uploadZone.classList.add('border-purple-400','bg-purple-50');});
-    uploadZone.addEventListener('dragleave',()=>uploadZone.classList.remove('border-purple-400','bg-purple-50'));
-    uploadZone.addEventListener('drop',e=>{e.preventDefault();uploadZone.classList.remove('border-purple-400','bg-purple-50');const f=e.dataTransfer.files[0];if(f)handleFile(f);});
-    fileInput.addEventListener('change',e=>{const f=e.target.files[0];if(f)handleFile(f);});
-    document.querySelectorAll('input[name="scale"]').forEach(r=>{r.addEventListener('change',()=>{currentScale=parseInt(r.value);document.getElementById('scale2-label').className='scale-option flex-1 text-center py-5 rounded-xl border-2 cursor-pointer '+(r.value==='2'?'border-purple-400 bg-purple-50':'border-gray-200 bg-gray-50');document.getElementById('scale4-label').className='scale-option flex-1 text-center py-5 rounded-xl border-2 cursor-pointer '+(r.value==='4'?'border-purple-400 bg-purple-50':'border-gray-200 bg-gray-50');});});
-    document.getElementById('processBtn').addEventListener('click',processImage);
-    document.getElementById('downloadBtn').addEventListener('click',()=>{const l=document.createElement('a');l.href=enhancedResult.src;l.download='enhanced.png';l.click();});
+    async function subscribe(plan) {
+      const price = plan === 'basic' ? '4.90' : '9.90';
+      if (confirm('Subscribe to ' + plan.toUpperCase() + '?\n$' + price + '/month\n\n(Demo mode)')) {
+        await fetch(WORKER_URL + '/api/subscribe', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({uid: currentUser.uid, plan: plan})
+        });
+        alert('Subscribed to ' + plan.toUpperCase() + '!');
+        loadUserData();
+      }
+    }
 
-    function handleFile(f){if(!['image/jpeg','image/png','image/webp'].includes(f.type)){showError('JPG/PNG/WebP only');return;}if(f.size>10485760){showError('Max 10MB');return;}hideError();currentFile=f;const r=new FileReader();r.onload=e=>{preview.src=e.target.result;const img=new Image();img.onload=()=>{originalSizeLabel.textContent=img.naturalWidth+'×'+img.naturalHeight+' ('+(f.size/1024).toFixed(1)+'KB)';};img.src=e.target.result;controls.classList.remove('hidden');results.classList.add('hidden');};r.readAsDataURL(f);}
+    function doLogout() {
+      document.getElementById('profileModal').classList.add('hidden');
+      auth.signOut();
+    }
 
-    async function processImage(){if(!currentUser){alert('Please sign in');return;}const scale=parseInt(document.querySelector('input[name="scale"]:checked').value);const credits=scale===4?2:1;showProgress(0,'Checking...');document.getElementById('processBtn').disabled=true;try{if(!isUnlimited){const ok=await consumeCredit();if(!ok)return;}}catch(e){}showProgress(30,'Loading...');const img=new Image();await new Promise((res,rej)=>{img.onload=res;img.onerror=rej;img.src=preview.src;});const w=img.naturalWidth,h=img.naturalHeight;showProgress(50,'Enhancing...');const result=upscaleImage(img,scale);showProgress(90,'Saving...');await recordUsage({filename:currentFile?.name||'untitled',original_size:currentFile?.size||0,original_width:w,original_height:h,enhanced_width:result.width,enhanced_height:result.height,scale});resultOriginalSize.textContent=w+'×'+h;resultEnhancedSize.textContent=result.width+'×'+result.height;originalResult.src=preview.src;enhancedResult.src=result.dataUrl;enhancedResult.style.width=result.width+'px';enhancedResult.style.height=result.height+'px';controls.classList.add('hidden');results.classList.remove('hidden');loadUserData();showProgress(100,'Done!');document.getElementById('processBtn').disabled=false;}
+    function upscaleImage(img, scale) {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = img.naturalWidth * scale;
+      canvas.height = img.naturalHeight * scale;
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      return {dataUrl: canvas.toDataURL('image/png'), width: canvas.width, height: canvas.height};
+    }
 
-    function reset(){currentFile=null;fileInput.value='';enhancedResult.style.width='';enhancedResult.style.height='';controls.classList.add('hidden');results.classList.add('hidden');hideError();}
-    function showProgress(pct,msg){progressContainer.classList.remove('hidden');progressBar.style.width=pct+'%';statusText.textContent=msg;}
-    function hideError(){errorContainer.classList.add('hidden');}
-    function showError(m){errorContainer.classList.remove('hidden');errorContainer.textContent=m;}
+    // File upload handlers
+    document.getElementById('uploadZone').addEventListener('click', () => document.getElementById('fileInput').click());
+    document.getElementById('uploadZone').addEventListener('dragover', e => { e.preventDefault(); document.getElementById('uploadZone').classList.add('border-purple-400', 'bg-purple-50'); });
+    document.getElementById('uploadZone').addEventListener('dragleave', () => document.getElementById('uploadZone').classList.remove('border-purple-400', 'bg-purple-50'));
+    document.getElementById('uploadZone').addEventListener('drop', e => { e.preventDefault(); document.getElementById('uploadZone').classList.remove('border-purple-400', 'bg-purple-50'); const f = e.dataTransfer.files[0]; if (f) handleFile(f); });
+    document.getElementById('fileInput').addEventListener('change', e => { const f = e.target.files[0]; if (f) handleFile(f); });
+
+    document.querySelectorAll('input[name="scale"]').forEach(r => {
+      r.addEventListener('change', () => {
+        document.getElementById('scale2-label').className = 'scale-option flex-1 text-center py-5 rounded-xl border-2 cursor-pointer ' + (r.value === '2' ? 'border-purple-400 bg-purple-50' : 'border-gray-200 bg-gray-50');
+        document.getElementById('scale4-label').className = 'scale-option flex-1 text-center py-5 rounded-xl border-2 cursor-pointer ' + (r.value === '4' ? 'border-purple-400 bg-purple-50' : 'border-gray-200 bg-gray-50');
+      });
+    });
+
+    document.getElementById('processBtn').addEventListener('click', processImage);
+    document.getElementById('downloadBtn').addEventListener('click', () => { const l = document.createElement('a'); l.href = document.getElementById('enhancedResult').src; l.download = 'enhanced.png'; l.click(); });
+
+    function handleFile(f) {
+      if (!['image/jpeg', 'image/png', 'image/webp'].includes(f.type)) { showError('JPG/PNG/WebP only'); return; }
+      if (f.size > 10485760) { showError('Max 10MB'); return; }
+      hideError();
+      currentFile = f;
+      const reader = new FileReader();
+      reader.onload = e => {
+        document.getElementById('preview').src = e.target.result;
+        const img = new Image();
+        img.onload = () => { document.getElementById('originalSizeLabel').textContent = img.naturalWidth + '×' + img.naturalHeight + ' (' + (f.size / 1024).toFixed(1) + 'KB)'; };
+        img.src = e.target.result;
+        document.getElementById('controls').classList.remove('hidden');
+        document.getElementById('results').classList.add('hidden');
+      };
+      reader.readAsDataURL(f);
+    }
+
+    async function processImage() {
+      if (!currentUser) { alert('Please sign in first'); return; }
+      const scale = parseInt(document.querySelector('input[name="scale"]:checked').value);
+      document.getElementById('processBtn').disabled = true;
+      showProgress(10, 'Processing...');
+      
+      const img = new Image();
+      await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = document.getElementById('preview').src; });
+      
+      showProgress(50, 'Enhancing...');
+      const w = img.naturalWidth, h = img.naturalHeight;
+      const result = upscaleImage(img, scale);
+      
+      showProgress(90, 'Complete!');
+      document.getElementById('resultOriginalSize').textContent = w + '×' + h;
+      document.getElementById('resultEnhancedSize').textContent = result.width + '×' + result.height;
+      document.getElementById('originalResult').src = document.getElementById('preview').src;
+      document.getElementById('enhancedResult').src = result.dataUrl;
+      document.getElementById('enhancedResult').style.width = result.width + 'px';
+      document.getElementById('enhancedResult').style.height = result.height + 'px';
+      
+      document.getElementById('controls').classList.add('hidden');
+      document.getElementById('results').classList.remove('hidden');
+      showProgress(100, 'Done!');
+      document.getElementById('processBtn').disabled = false;
+    }
+
+    function reset() {
+      currentFile = null;
+      document.getElementById('fileInput').value = '';
+      document.getElementById('enhancedResult').style.width = '';
+      document.getElementById('enhancedResult').style.height = '';
+      document.getElementById('controls').classList.add('hidden');
+      document.getElementById('results').classList.add('hidden');
+      hideError();
+    }
+
+    function showProgress(pct, msg) {
+      document.getElementById('progressContainer').classList.remove('hidden');
+      document.getElementById('progressBar').style.width = pct + '%';
+      document.getElementById('statusText').textContent = msg;
+    }
+
+    function hideError() { document.getElementById('errorContainer').classList.add('hidden'); }
+    function showError(m) { document.getElementById('errorContainer').classList.remove('hidden'); document.getElementById('errorContainer').textContent = m; }
   </script>
 </body>
 </html>
