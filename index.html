@@ -28,6 +28,27 @@
       </div>
     </header>
 
+    <!-- Credits Banner -->
+    <div id="creditsBanner" class="hidden bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-3">
+      <div class="max-w-6xl mx-auto px-4 flex justify-between items-center">
+        <div class="flex items-center gap-2">
+          <span class="text-lg">💎</span>
+          <span id="bannerCredits">0</span>
+          <span class="text-sm opacity-80">credits remaining</span>
+        </div>
+        <button onclick="document.getElementById('profileModal').classList.remove('hidden'); loadUserData();" class="text-sm bg-white/20 hover:bg-white/30 px-3 py-1 rounded-full transition">
+          View Details →
+        </button>
+      </div>
+    </div>
+
+    <!-- Low Credits Warning -->
+    <div id="lowCreditsWarning" class="hidden bg-amber-500 text-white py-2">
+      <div class="max-w-6xl mx-auto px-4 text-center text-sm">
+        ⚠️ Low credits! <a href="#" onclick="showPage('pricing'); return false;" class="underline font-medium">Buy more credits</a> or subscribe for unlimited usage.
+      </div>
+    </div>
+
     <div id="loginOverlay" class="fixed inset-0 bg-white/95 flex items-center justify-center z-50">
       <div class="text-center p-8 max-w-md">
         <div class="text-6xl mb-6">🎁</div>
@@ -273,7 +294,31 @@
         document.getElementById('planBadge').textContent = (user.plan || 'free').toUpperCase();
         document.getElementById('totalUsageDisplay').textContent = stats.total_usage || 0;
         document.getElementById('weekUsageDisplay').textContent = stats.week_usage || 0;
+        
+        // Update credits banner
+        updateCreditsBanner();
       } catch (e) { console.error(e); }
+    }
+
+    function updateCreditsBanner() {
+      const banner = document.getElementById('creditsBanner');
+      const warning = document.getElementById('lowCreditsWarning');
+      const bannerCredits = document.getElementById('bannerCredits');
+      
+      if (currentUser) {
+        banner.classList.remove('hidden');
+        bannerCredits.textContent = isUnlimited ? '∞' : balance;
+        
+        // Show warning if low credits (less than 3)
+        if (!isUnlimited && balance < 3) {
+          warning.classList.remove('hidden');
+        } else {
+          warning.classList.add('hidden');
+        }
+      } else {
+        banner.classList.add('hidden');
+        warning.classList.add('hidden');
+      }
     }
 
     function renderAuthUI(user) {
@@ -285,12 +330,17 @@
         const name = user.displayName || user.email.split('@')[0];
         document.getElementById('authSection').innerHTML = '<button onclick="document.getElementById(\'profileModal\').classList.remove(\'hidden\');loadUserData();" class="flex items-center gap-2"><img src="' + avatar + '" class="w-8 h-8 rounded-full border border-white/50"><span class="font-medium">' + name + '</span></button>';
         recordLogin(user);
+        // Load user data and update banner
+        loadUserData();
       } else {
         currentUser = null;
         document.getElementById('loginOverlay').classList.remove('hidden');
         showPage('home');
         document.getElementById('authSection').innerHTML = '';
         document.getElementById('loginBtnText').textContent = 'Sign up with Google';
+        // Hide credits banner
+        document.getElementById('creditsBanner').classList.add('hidden');
+        document.getElementById('lowCreditsWarning').classList.add('hidden');
       }
     }
 
@@ -397,6 +447,9 @@
       document.getElementById('results').classList.remove('hidden');
       showProgress(100, 'Done!');
       document.getElementById('processBtn').disabled = false;
+      
+      // Refresh credits after using one
+      loadUserData();
     }
 
     function reset() {
