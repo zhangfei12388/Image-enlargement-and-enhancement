@@ -1,6 +1,8 @@
-interface Env {
+export interface Env {
   AI: Ai;
   DB: D1Database;
+  PAYPAL_CLIENT_ID: string;
+  PAYPAL_CLIENT_SECRET: string;
 }
 
 // Pricing Plans
@@ -10,20 +12,93 @@ const PLANS = {
   pro: { name: 'Pro', monthly_credits: -1, price: 9.9 }
 };
 
-// Credit Packages
+// Credit Packages with PayPal prices
 const CREDIT_PACKAGES = [
-  { name: 'Starter', credits: 30, price: 0.5, days: 30 },
-  { name: 'Small', credits: 100, price: 1, days: 30 },
-  { name: 'Medium', credits: 500, price: 4, days: 90 },
-  { name: 'Large', credits: 1000, price: 7, days: 180 },
-  { name: 'Team', credits: 5000, price: 25, days: 365 }
+  { name: 'Starter', credits: 30, price: 0.5, days: 30, paypalPrice: "0.50" },
+  { name: 'Small', credits: 100, price: 1, days: 30, paypalPrice: "1.00" },
+  { name: 'Medium', credits: 500, price: 4, days: 90, paypalPrice: "4.00" },
+  { name: 'Large', credits: 1000, price: 7, days: 180, paypalPrice: "7.00" },
+  { name: 'Team', credits: 5000, price: 25, days: 365, paypalPrice: "25.00" }
 ];
+
+// Subscription Plans with PayPal prices
+const SUBSCRIPTION_PLANS = {
+  basic: { name: 'Basic', monthly_credits: 500, price: 4.9, paypalPrice: "4.90", interval: "MONTH" },
+  pro: { name: 'Pro', monthly_credits: -1, price: 9.9, paypalPrice: "9.90", interval: "MONTH" }
+};
 
 function cors(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
     headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
   });
+}
+
+// Get PayPal Access Token
+async function getPayPalAccessToken(env: Env): Promise<string> {
+  const auth = Buffer.from(`${env.PAYPAL_CLIENT_ID}:${env.PAYPAL_CLIENT_SECRET}`).toString('base64');
+  
+  const response = await fetch('https://api-m.paypal.com/v1/oauth2/token', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Basic ${auth}`,
+      'Content-Type': 'application/x-www-form-urlencoded'
+    },
+    body: 'grant_type=client_credentials'
+  });
+  
+  const data = await response.json();
+  return data.access_token;
+}
+
+// Create PayPal Order
+async function createPayPalOrder(env: Env, amount: string, description: string, customId: string): Promise<{ orderId: string, approvalUrl: string }> {
+  const accessToken = await getPayPalAccessToken(env);
+  
+  const response = await fetch('https://api-m.paypal.com/v2/checkout/orders', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      intent: 'CAPTURE',
+      purchase_units: [{
+        amount: {
+          currency_code: 'USD',
+          value: amount
+        },
+        description: description,
+        custom_id: customId
+      }]
+    })
+  });
+  
+  const order = await response.json();
+  
+  // Find approval URL
+  const approvalUrl = order.links?.find((link: any) => link.rel === 'approve')?.href;
+  
+  return {
+    orderId: order.id,
+    approvalUrl: approvalUrl || ''
+  };
+}
+
+// Capture PayPal Order
+async function capturePayPalOrder(env: Env, orderId: string): Promise<boolean> {
+  const accessToken = await getPayPalAccessToken(env);
+  
+  const response = await fetch(`https://api-m.paypal.com/v2/checkout/orders/${orderId}/capture`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json'
+    }
+  });
+  
+  const data = await response.json();
+  return data.status === 'COMPLETED';
 }
 
 export default {
@@ -38,7 +113,130 @@ export default {
 
     // Get plans info
     if (url.pathname === "/api/plans") {
-      return cors({ plans: PLANS, packages: CREDIT_PACKAGES });
+      return cors({ plans: PLANS, packages: CREDIT_PACKAGES, subscriptions: SUBSCRIPTION_PLANS });
+    }
+
+    // Create PayPal order for credits
+    if (url.pathname === "/api/create-order") {
+      if (request.method !== "POST") return cors({ error: "Method not allowed" }, 405);
+      try {
+        const { uid, package_index } = await request.json();
+        if (!uid) return cors({ error: "uid required" }, 400);
+
+        const pkg = CREDIT_PACKAGES[package_index];
+        if (!pkg) return cors({ error: "Invalid package" }, 400);
+
+        const orderData = await createPayPalOrder(
+          env,
+          pkg.paypalPrice,
+          `${pkg.name} Package - ${pkg.credits} Credits`,
+          `credits_${uid}_${package_index}_${Date.now()}`
+        );
+
+        // Store pending order in DB
+        await env.DB.prepare(`
+          INSERT INTO paypal_orders (order_id, user_id, type, package_index, amount, status, custom_data)
+          VALUES (?, ?, 'credits', ?, ?, 'pending', ?)
+        `).bind(
+          orderData.orderId,
+          uid,
+          package_index,
+          pkg.credits,
+          JSON.stringify({ package_name: pkg.name })
+        ).run();
+
+        return cors({ orderId: orderData.orderId, approvalUrl: orderData.approvalUrl });
+      } catch (e) {
+        console.error('Create order error:', e);
+        return cors({ error: "Failed to create order" }, 500);
+      }
+    }
+
+    // Create PayPal subscription
+    if (url.pathname === "/api/create-subscription") {
+      if (request.method !== "POST") return cors({ error: "Method not allowed" }, 405);
+      try {
+        const { uid, plan } = await request.json();
+        if (!uid) return cors({ error: "uid required" }, 400);
+
+        const subPlan = SUBSCRIPTION_PLANS[plan as keyof typeof SUBSCRIPTION_PLANS];
+        if (!subPlan) return cors({ error: "Invalid plan" }, 400);
+
+        const accessToken = await getPayPalAccessToken(env);
+
+        // Create subscription
+        const response = await fetch('https://api-m.paypal.com/v1/billing/subscriptions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            plan_id: `PROVIDE_YOUR_PAYPAL_PLAN_ID_${plan}`, // Need to create product & plan in PayPal first
+            subscriber: { custom_id: uid },
+            custom_id: `sub_${uid}_${plan}_${Date.now()}`
+          })
+        });
+
+        const subData = await response.json();
+        const approvalUrl = subData.links?.find((link: any) => link.rel === 'approve')?.href;
+
+        return cors({ subscriptionId: subData.id, approvalUrl: approvalUrl || '' });
+      } catch (e) {
+        console.error('Create subscription error:', e);
+        return cors({ error: "Failed to create subscription" }, 500);
+      }
+    }
+
+    // PayPal webhook / return URL
+    if (url.pathname === "/api/paypal-return") {
+      const orderId = url.searchParams.get("token") || url.searchParams.get("orderId");
+      const status = url.searchParams.get("status");
+      
+      if (orderId) {
+        // Update order status
+        await env.DB.prepare(`
+          UPDATE paypal_orders SET status = ?, updated_at = datetime('now')
+          WHERE order_id = ?
+        `).bind(status === 'COMPLETED' ? 'completed' : 'processing', orderId).run();
+      }
+      
+      // Redirect back to app
+      return new Response(null, {
+        status: 302,
+        headers: { 'Location': '/' }
+      });
+    }
+
+    // Check order status (for frontend polling)
+    if (url.pathname === "/api/check-order") {
+      const orderId = url.searchParams.get("orderId");
+      if (!orderId) return cors({ error: "orderId required" }, 400);
+
+      try {
+        // Check local status first
+        const localOrder = await env.DB.prepare("SELECT * FROM paypal_orders WHERE order_id = ?").bind(orderId).first();
+        
+        if (localOrder?.status === 'completed') {
+          // Deliver credits
+          if (localOrder.type === 'credits' && localOrder.package_index !== null) {
+            const pkg = CREDIT_PACKAGES[localOrder.package_index];
+            if (pkg) {
+              await env.DB.prepare(`
+                INSERT INTO credits (user_id, amount, plan_type, expires_at)
+                VALUES (?, ?, ?, datetime('now', '+' || ? || ' days'))
+              `).bind(localOrder.user_id, pkg.credits, pkg.name, pkg.days).run();
+            }
+          }
+        }
+
+        return cors({
+          status: localOrder?.status || 'unknown',
+          credits: localOrder?.status === 'completed' ? CREDIT_PACKAGES[localOrder.package_index as number]?.credits : null
+        });
+      } catch (e) {
+        return cors({ error: "Check failed" }, 500);
+      }
     }
 
     // Record login & give welcome credits
@@ -195,7 +393,7 @@ export default {
       return cors({ total_usage: total?.count || 0, week_usage: week?.count || 0 });
     }
 
-    // Simulate purchase (in production, this would be after PayPal/Stripe webhook)
+    // Simulate purchase (in production, this would be after PayPal webhook)
     if (url.pathname === "/api/purchase") {
       if (request.method !== "POST") return cors({ error: "Method not allowed" }, 405);
       try {
@@ -236,7 +434,7 @@ export default {
 
     // Health check
     if (url.pathname === "/health") {
-      return cors({ status: "ok", plans: PLANS, packages: CREDIT_PACKAGES });
+      return cors({ status: "ok", plans: PLANS, packages: CREDIT_PACKAGES, subscriptions: SUBSCRIPTION_PLANS });
     }
 
     return cors({ message: "Image Enhancement API" });

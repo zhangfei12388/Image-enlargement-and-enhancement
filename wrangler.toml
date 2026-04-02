@@ -10,3 +10,11 @@ binding = "AI"
 binding = "DB"
 database_name = "image-enhancer-users"
 database_id = "f62033e7-97ce-417f-8e87-cac87db83c02"
+
+# PayPal Configuration (Live)
+[vars]
+PAYPAL_MODE = "live"
+
+# Secrets (set via wrangler secret put):
+# PAYPAL_CLIENT_ID
+# PAYPAL_CLIENT_SECRET

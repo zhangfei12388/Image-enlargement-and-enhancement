@@ -7,6 +7,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+  <script src="https://www.paypal.com/sdk/js?client-id=AWH3Zx9ZBEBBKgVdDRAzWVGdXsCSkw3G36FU3gNmMmqu3StAMAXsKPWW6cDw69IGG9TOXsMsQkx0TjM0&currency=USD" data-sdk-integration-source="button-factory"></script>
   <style>
     body { font-family: system-ui, -apple-system, sans-serif; }
     .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
@@ -45,7 +46,22 @@
     <!-- Low Credits Warning -->
     <div id="lowCreditsWarning" class="hidden bg-amber-500 text-white py-2">
       <div class="max-w-6xl mx-auto px-4 text-center text-sm">
-        ⚠️ Low credits! <a href="#" onclick="showPage('pricing'); return false;" class="underline font-medium">Buy more credits</a> or subscribe for unlimited usage.
+        ⚠️ Low credits! <a href="#" onclick="showPage('pricing'); return false;" class="underline font-medium">Buy more credits</a>
+      </div>
+    </div>
+
+    <!-- Payment Processing Modal -->
+    <div id="paymentModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div class="bg-white rounded-2xl max-w-md w-full">
+        <div class="gradient-bg p-4 text-white flex justify-between items-center rounded-t-2xl">
+          <h2 class="font-bold">💳 Processing Payment</h2>
+          <button onclick="closePaymentModal()" class="text-2xl">&times;</button>
+        </div>
+        <div class="p-6 text-center">
+          <div class="spinner mx-auto mb-4" style="width:40px;height:40px;border-width:4px;"></div>
+          <p id="paymentStatus">Connecting to PayPal...</p>
+          <p id="paymentPackage" class="text-gray-500 mt-2"></p>
+        </div>
       </div>
     </div>
 
@@ -159,30 +175,7 @@
 
       <div class="mb-12">
         <h3 class="text-2xl font-bold mb-6 text-center">💰 Pay-As-You-Go</h3>
-        <div class="grid md:grid-cols-3 gap-6">
-          <div class="bg-white rounded-2xl p-6 shadow-lg border-2 border-gray-200">
-            <h4 class="text-xl font-bold text-center">Starter</h4>
-            <p class="text-4xl font-bold text-center mt-4">$0.50</p>
-            <p class="text-gray-500 text-center">30 credits</p>
-            <ul class="mt-6 space-y-2 text-sm"><li>✓ 30 enhancements</li><li>✓ Valid 30 days</li></ul>
-            <button onclick="currentUser && purchasePackage(0)" class="w-full mt-6 py-3 rounded-xl border-2 border-gray-300">Select</button>
-          </div>
-          <div class="bg-white rounded-2xl p-6 shadow-xl border-2 border-purple-400 relative">
-            <div class="absolute -top-3 left-1/2 -translate-x-1/2 bg-purple-600 text-white px-4 py-1 rounded-full text-sm">BEST VALUE</div>
-            <h4 class="text-xl font-bold text-center gradient-text mt-2">Medium</h4>
-            <p class="text-4xl font-bold text-center mt-4">$4.00</p>
-            <p class="text-gray-500 text-center">500 credits</p>
-            <ul class="mt-6 space-y-2 text-sm"><li>✓ 500 enhancements</li><li>✓ Valid 90 days</li></ul>
-            <button onclick="currentUser && purchasePackage(1)" class="w-full mt-6 py-3 rounded-xl font-bold text-white gradient-bg">Select</button>
-          </div>
-          <div class="bg-white rounded-2xl p-6 shadow-lg border-2 border-gray-200">
-            <h4 class="text-xl font-bold text-center">Large</h4>
-            <p class="text-4xl font-bold text-center mt-4">$20.00</p>
-            <p class="text-gray-500 text-center">1000 credits</p>
-            <ul class="mt-6 space-y-2 text-sm"><li>✓ 1000 enhancements</li><li>✓ Valid 180 days</li></ul>
-            <button onclick="currentUser && purchasePackage(2)" class="w-full mt-6 py-3 rounded-xl border-2 border-gray-300">Select</button>
-          </div>
-        </div>
+        <div id="packagesContainer" class="grid md:grid-cols-3 gap-6"></div>
       </div>
 
       <div class="mb-12">
@@ -198,20 +191,20 @@
             <h4 class="text-xl font-bold text-center text-blue-600">Basic</h4>
             <p class="text-4xl font-bold text-center mt-4">$4.90<span class="text-lg">/mo</span></p>
             <ul class="mt-6 space-y-2 text-sm"><li>✓ 500 credits/month</li></ul>
-            <button onclick="currentUser && subscribe('basic')" class="w-full mt-6 py-3 rounded-xl font-bold text-white bg-blue-500">Subscribe</button>
+            <button onclick="handleSubscription('basic')" class="w-full mt-6 py-3 rounded-xl font-bold text-white bg-blue-500">Subscribe</button>
           </div>
           <div class="bg-white rounded-2xl p-6 shadow-xl border-2 border-purple-400 relative">
             <div class="absolute -top-3 left-1/2 -translate-x-1/2 pro-gradient text-white px-4 py-1 rounded-full text-sm">POPULAR</div>
             <h4 class="text-xl font-bold text-center gradient-text mt-2">Pro</h4>
             <p class="text-4xl font-bold text-center mt-4">$9.90<span class="text-lg">/mo</span></p>
             <ul class="mt-6 space-y-2 text-sm"><li>✓ <strong>Unlimited</strong> credits</li></ul>
-            <button onclick="currentUser && subscribe('pro')" class="w-full mt-6 py-3 rounded-xl font-bold text-white pro-gradient">Subscribe</button>
+            <button onclick="handleSubscription('pro')" class="w-full mt-6 py-3 rounded-xl font-bold text-white pro-gradient">Subscribe</button>
           </div>
         </div>
       </div>
 
       <div class="text-center py-8 border-t">
-        <p class="text-gray-500">💳 Secure payment via PayPal (Stripe coming soon)</p>
+        <p class="text-gray-500">💳 Secure payment via <span class="font-medium text-blue-600">PayPal</span></p>
       </div>
     </div>
 
@@ -219,7 +212,6 @@
   </div>
 
   <script>
-    // Firebase Config
     const firebaseConfig = {
       apiKey: "AIzaSyCu0oQiU0PagS5ujK-cp0k1Olp6pldgT8Q",
       authDomain: "image-enhancer-auth-1c566.firebaseapp.com",
@@ -233,32 +225,41 @@
     const auth = firebase.auth();
     const WORKER_URL = 'https://image-enhancement-worker.feiz45607.workers.dev';
 
-    const packages = [{name:'Starter',credits:30,price:0.5},{name:'Medium',credits:500,price:4},{name:'Large',credits:1000,price:20}];
+    const packages = [
+      {name:'Starter', credits:30, price:0.5},
+      {name:'Medium', credits:500, price:4},
+      {name:'Large', credits:1000, price:20}
+    ];
     
     let currentUser = null, balance = 3, isUnlimited = false, currentFile = null;
+    let currentPaypalOrderId = null, paymentCheckInterval = null;
 
     function showPage(p) {
       document.getElementById('mainContent').classList.toggle('hidden', p!='home');
       document.getElementById('pricingPage').classList.toggle('hidden', p!='pricing');
+      if (p === 'pricing') renderPackages();
     }
+    
     function closeProfile() { document.getElementById('profileModal').classList.add('hidden'); }
+    
+    function closePaymentModal() {
+      document.getElementById('paymentModal').classList.add('hidden');
+      if (paymentCheckInterval) { clearInterval(paymentCheckInterval); paymentCheckInterval = null; }
+      if (currentPaypalOrderId) checkOrderStatus(currentPaypalOrderId);
+    }
 
     async function handleGoogleLogin() {
       const btn = document.getElementById('googleLoginBtn');
       const btnText = document.getElementById('loginBtnText');
       const errorEl = document.getElementById('loginError');
-      
       errorEl.classList.add('hidden');
       btn.disabled = true;
       btnText.innerHTML = '<span class="spinner"></span> Signing in...';
-      
       try {
         const provider = new firebase.auth.GoogleAuthProvider();
-        const result = await auth.signInWithPopup(provider);
-        console.log('Login success:', result.user.email);
+        await auth.signInWithPopup(provider);
       } catch (error) {
-        console.error('Login error:', error);
-        errorEl.textContent = error.message || 'Login failed. Please try again.';
+        errorEl.textContent = error.message || 'Login failed.';
         errorEl.classList.remove('hidden');
         btnText.textContent = 'Sign up with Google';
       }
@@ -272,7 +273,7 @@
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({uid: user.uid, email: user.email, name: user.displayName, picture: user.photoURL})
         });
-      } catch (e) { console.log('Record login failed'); }
+      } catch (e) {}
     }
 
     async function loadUserData() {
@@ -294,31 +295,106 @@
         document.getElementById('planBadge').textContent = (user.plan || 'free').toUpperCase();
         document.getElementById('totalUsageDisplay').textContent = stats.total_usage || 0;
         document.getElementById('weekUsageDisplay').textContent = stats.week_usage || 0;
-        
-        // Update credits banner
         updateCreditsBanner();
-      } catch (e) { console.error(e); }
+      } catch (e) {}
     }
 
     function updateCreditsBanner() {
-      const banner = document.getElementById('creditsBanner');
-      const warning = document.getElementById('lowCreditsWarning');
-      const bannerCredits = document.getElementById('bannerCredits');
-      
       if (currentUser) {
-        banner.classList.remove('hidden');
-        bannerCredits.textContent = isUnlimited ? '∞' : balance;
-        
-        // Show warning if low credits (less than 3)
-        if (!isUnlimited && balance < 3) {
-          warning.classList.remove('hidden');
-        } else {
-          warning.classList.add('hidden');
-        }
+        document.getElementById('creditsBanner').classList.remove('hidden');
+        document.getElementById('bannerCredits').textContent = isUnlimited ? '∞' : balance;
+        document.getElementById('lowCreditsWarning').classList.toggle('hidden', isUnlimited || balance >= 3);
       } else {
-        banner.classList.add('hidden');
-        warning.classList.add('hidden');
+        document.getElementById('creditsBanner').classList.add('hidden');
+        document.getElementById('lowCreditsWarning').classList.add('hidden');
       }
+    }
+
+    function renderPackages() {
+      const container = document.getElementById('packagesContainer');
+      container.innerHTML = packages.map((pkg, idx) => `
+        <div class="bg-white rounded-2xl p-6 shadow-lg border-2 border-gray-200">
+          <h4 class="text-xl font-bold text-center">${pkg.name}</h4>
+          <p class="text-4xl font-bold text-center mt-4">$${pkg.price.toFixed(2)}</p>
+          <p class="text-gray-500 text-center">${pkg.credits} credits</p>
+          <ul class="mt-6 space-y-2 text-sm">
+            <li>✓ ${pkg.credits} enhancements</li>
+            <li>✓ Valid for 30 days</li>
+          </ul>
+          <button onclick="initPaypalPayment(${idx})" class="w-full mt-6 py-3 rounded-xl font-bold text-white gradient-bg">🛒 Buy Now</button>
+        </div>
+      `).join('');
+    }
+
+    function initPaypalPayment(packageIndex) {
+      if (!currentUser) { alert('Please sign in first'); return; }
+      
+      const pkg = packages[packageIndex];
+      document.getElementById('paymentModal').classList.remove('hidden');
+      document.getElementById('paymentStatus').textContent = 'Creating PayPal order...';
+      document.getElementById('paymentPackage').textContent = `${pkg.name} - ${pkg.credits} credits for $${pkg.price}`;
+      
+      fetch(WORKER_URL + '/api/create-order', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({uid: currentUser.uid, package_index: packageIndex})
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.approvalUrl) {
+          document.getElementById('paymentStatus').textContent = 'Redirecting to PayPal...';
+          currentPaypalOrderId = data.orderId;
+          sessionStorage.setItem('pendingPaypalOrder', data.orderId);
+          
+          const paypalWindow = window.open(data.approvalUrl, 'paypal', 'width=600,height=700,scrollbars=yes');
+          
+          if (paypalWindow) {
+            paymentCheckInterval = setInterval(async () => {
+              if (paypalWindow.closed) {
+                clearInterval(paymentCheckInterval);
+                checkOrderStatus(data.orderId);
+              }
+              try {
+                const statusRes = await fetch(WORKER_URL + '/api/check-order?orderId=' + data.orderId);
+                const statusData = await statusRes.json();
+                if (statusData.status === 'completed') {
+                  clearInterval(paymentCheckInterval);
+                  if (!paypalWindow.closed) paypalWindow.close();
+                  document.getElementById('paymentStatus').textContent = '✅ Payment Completed!';
+                  document.getElementById('paymentPackage').textContent = `${statusData.credits} credits added!`;
+                  setTimeout(() => { closePaymentModal(); loadUserData(); }, 1500);
+                }
+              } catch (e) {}
+            }, 2000);
+          }
+        } else {
+          document.getElementById('paymentStatus').textContent = '❌ Error: ' + (data.error || 'Failed');
+          setTimeout(() => closePaymentModal(), 3000);
+        }
+      })
+      .catch(err => {
+        document.getElementById('paymentStatus').textContent = '❌ Connection error';
+        setTimeout(() => closePaymentModal(), 3000);
+      });
+    }
+
+    async function checkOrderStatus(orderId) {
+      if (!orderId) return;
+      try {
+        const res = await fetch(WORKER_URL + '/api/check-order?orderId=' + orderId);
+        const data = await res.json();
+        if (data.status === 'completed') {
+          alert(`🎉 Success! ${data.credits} credits added!`);
+          sessionStorage.removeItem('pendingPaypalOrder');
+          loadUserData();
+        }
+      } catch (e) {}
+      currentPaypalOrderId = null;
+    }
+
+    function handleSubscription(plan) {
+      if (!currentUser) { alert('Please sign in first'); return; }
+      alert(`Subscription requires PayPal Billing Plan setup.\n\nContact support to enable ${plan.toUpperCase()} recurring billing.`);
     }
 
     function renderAuthUI(user) {
@@ -330,47 +406,20 @@
         const name = user.displayName || user.email.split('@')[0];
         document.getElementById('authSection').innerHTML = '<button onclick="document.getElementById(\'profileModal\').classList.remove(\'hidden\');loadUserData();" class="flex items-center gap-2"><img src="' + avatar + '" class="w-8 h-8 rounded-full border border-white/50"><span class="font-medium">' + name + '</span></button>';
         recordLogin(user);
-        // Load user data and update banner
         loadUserData();
+        const pendingOrder = sessionStorage.getItem('pendingPaypalOrder');
+        if (pendingOrder) setTimeout(() => checkOrderStatus(pendingOrder), 1000);
       } else {
         currentUser = null;
         document.getElementById('loginOverlay').classList.remove('hidden');
         showPage('home');
         document.getElementById('authSection').innerHTML = '';
-        document.getElementById('loginBtnText').textContent = 'Sign up with Google';
-        // Hide credits banner
         document.getElementById('creditsBanner').classList.add('hidden');
         document.getElementById('lowCreditsWarning').classList.add('hidden');
       }
     }
 
     auth.onAuthStateChanged(renderAuthUI);
-
-    async function purchasePackage(idx) {
-      const pkg = packages[idx];
-      if (confirm('Buy ' + pkg.name + '?\n' + pkg.credits + ' credits for $' + pkg.price + '\n\n(Demo mode)')) {
-        await fetch(WORKER_URL + '/api/purchase', {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({uid: currentUser.uid, package_index: idx})
-        });
-        alert('Purchased ' + pkg.credits + ' credits!');
-        loadUserData();
-      }
-    }
-
-    async function subscribe(plan) {
-      const price = plan === 'basic' ? '4.90' : '9.90';
-      if (confirm('Subscribe to ' + plan.toUpperCase() + '?\n$' + price + '/month\n\n(Demo mode)')) {
-        await fetch(WORKER_URL + '/api/subscribe', {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({uid: currentUser.uid, plan: plan})
-        });
-        alert('Subscribed to ' + plan.toUpperCase() + '!');
-        loadUserData();
-      }
-    }
 
     function doLogout() {
       document.getElementById('profileModal').classList.add('hidden');
@@ -379,16 +428,15 @@
 
     function upscaleImage(img, scale) {
       const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
       canvas.width = img.naturalWidth * scale;
       canvas.height = img.naturalHeight * scale;
+      const ctx = canvas.getContext('2d');
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = 'high';
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       return {dataUrl: canvas.toDataURL('image/png'), width: canvas.width, height: canvas.height};
     }
 
-    // File upload handlers
     document.getElementById('uploadZone').addEventListener('click', () => document.getElementById('fileInput').click());
     document.getElementById('uploadZone').addEventListener('dragover', e => { e.preventDefault(); document.getElementById('uploadZone').classList.add('border-purple-400', 'bg-purple-50'); });
     document.getElementById('uploadZone').addEventListener('dragleave', () => document.getElementById('uploadZone').classList.remove('border-purple-400', 'bg-purple-50'));
@@ -442,13 +490,10 @@
       document.getElementById('enhancedResult').src = result.dataUrl;
       document.getElementById('enhancedResult').style.width = result.width + 'px';
       document.getElementById('enhancedResult').style.height = result.height + 'px';
-      
       document.getElementById('controls').classList.add('hidden');
       document.getElementById('results').classList.remove('hidden');
       showProgress(100, 'Done!');
       document.getElementById('processBtn').disabled = false;
-      
-      // Refresh credits after using one
       loadUserData();
     }
 
