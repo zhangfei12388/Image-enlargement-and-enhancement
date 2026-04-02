@@ -44,7 +44,8 @@ async function getPayPalAccessToken(env: Env): Promise<string> {
     throw new Error('PayPal credentials not configured');
   }
   
-  const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+  // Use btoa for base64 encoding (compatible with Cloudflare Workers)
+  const auth = btoa(`${clientId}:${clientSecret}`);
   
   const response = await fetch('https://api-m.paypal.com/v1/oauth2/token', {
     method: 'POST',
