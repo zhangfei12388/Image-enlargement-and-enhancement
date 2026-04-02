@@ -3,6 +3,7 @@ export interface Env {
   DB: D1Database;
   PAYPAL_CLIENT_ID: string;
   PAYPAL_CLIENT_SECRET: string;
+  PAYPAL_WEBHOOK_ID?: string;
 }
 
 // Pricing Plans
@@ -75,8 +76,6 @@ async function createPayPalOrder(env: Env, amount: string, description: string, 
   });
   
   const order = await response.json();
-  
-  // Find approval URL
   const approvalUrl = order.links?.find((link: any) => link.rel === 'approve')?.href;
   
   return {
@@ -85,30 +84,200 @@ async function createPayPalOrder(env: Env, amount: string, description: string, 
   };
 }
 
-// Capture PayPal Order
-async function capturePayPalOrder(env: Env, orderId: string): Promise<boolean> {
-  const accessToken = await getPayPalAccessToken(env);
-  
-  const response = await fetch(`https://api-m.paypal.com/v2/checkout/orders/${orderId}/capture`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/json'
-    }
-  });
-  
-  const data = await response.json();
-  return data.status === 'COMPLETED';
+// Deliver credits to user
+async function deliverCredits(env: Env, userId: string, packageIndex: number): Promise<void> {
+  const pkg = CREDIT_PACKAGES[packageIndex];
+  if (!pkg) {
+    console.error('Invalid package index:', packageIndex);
+    return;
+  }
+
+  // Add credits to user
+  await env.DB.prepare(`
+    INSERT INTO credits (user_id, amount, plan_type, expires_at)
+    VALUES (?, ?, ?, datetime('now', '+' || ? || ' days'))
+  `).bind(userId, pkg.credits, pkg.name, pkg.days).run();
+
+  // Log the transaction
+  await env.DB.prepare(`
+    INSERT INTO transactions (user_id, type, amount, description, paypal_order_id)
+    VALUES (?, 'credit_purchase', ?, ?, ?)
+  `).bind(userId, pkg.credits, `${pkg.name} Package`, 'unknown').run();
+
+  console.log(`Delivered ${pkg.credits} credits to user ${userId}`);
+}
+
+// Verify PayPal webhook signature
+async function verifyPayPalWebhook(payload: string, headers: Headers, env: Env): Promise<boolean> {
+  const headersObj = {
+    'PAYPAL-AUTH-ALGO': headers.get('PAYPAL-AUTH-ALGO') || '',
+    'PAYPAL-CERT-URL': headers.get('PAYPAL-CERT-URL') || '',
+    'PAYPAL-TRANSMISSION-ID': headers.get('PAYPAL-TRANSMISSION-ID') || '',
+    'PAYPAL-TRANSMISSION-SIG': headers.get('PAYPAL-TRANSMISSION-SIG') || '',
+    'PAYPAL-TRANSMISSION-TIME': headers.get('PAYPAL-TRANSMISSION-TIME') || ''
+  };
+
+  // Check if webhook ID is configured
+  if (!env.PAYPAL_WEBHOOK_ID) {
+    console.log('PAYPAL_WEBHOOK_ID not configured, skipping verification');
+    return true; // In demo mode, skip verification
+  }
+
+  try {
+    const accessToken = await getPayPalAccessToken(env);
+    
+    const response = await fetch('https://api-m.paypal.com/v1/notifications/verify-webhook-signature', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        auth_algo: headersObj['PAYPAL-AUTH-ALGO'],
+        cert_url: headersObj['PAYPAL-CERT-URL'],
+        transmission_id: headersObj['PAYPAL-TRANSMISSION-ID'],
+        transmission_sig: headersObj['PAYPAL-TRANSMISSION-SIG'],
+        transmission_time: headersObj['PAYPAL-TRANSMISSION-TIME'],
+        webhook_id: env.PAYPAL_WEBHOOK_ID,
+        webhook_event: JSON.parse(payload)
+      })
+    });
+
+    const result = await response.json();
+    return result.verification_status === 'SUCCESS';
+  } catch (e) {
+    console.error('Webhook verification error:', e);
+    return false;
+  }
+}
+
+// Deliver credits to user
+async function deliverCreditsToUser(env: Env, userId: string, packageIndex: number): Promise<void> {
+  const pkg = CREDIT_PACKAGES[packageIndex];
+  if (!pkg) {
+    console.error('Invalid package index:', packageIndex);
+    return;
+  }
+
+  // Check if already delivered (prevent duplicate)
+  const existing = await env.DB.prepare(
+    "SELECT * FROM paypal_orders WHERE user_id = ? AND package_index = ? AND status = 'completed'"
+  ).bind(userId, packageIndex).first();
+
+  if (existing) {
+    console.log('Credits already delivered for this order');
+    return;
+  }
+
+  // Add credits
+  await env.DB.prepare(`
+    INSERT INTO credits (user_id, amount, plan_type, expires_at)
+    VALUES (?, ?, ?, datetime('now', '+' || ? || ' days'))
+  `).bind(userId, pkg.credits, pkg.name, pkg.days).run();
+
+  console.log(`Delivered ${pkg.credits} credits to user ${userId}`);
 }
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
 
+    // Handle CORS preflight
     if (request.method === "OPTIONS") {
       return new Response(null, {
-        headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type' }
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, PAYPAL-AUTH-ALGO, PAYPAL-CERT-URL, PAYPAL-TRANSMISSION-ID, PAYPAL-TRANSMISSION-SIG, PAYPAL-TRANSMISSION-TIME'
+        }
       });
+    }
+
+    // ============================================
+    // PayPal Webhook Handler
+    // ============================================
+    if (url.pathname === "/api/paypal-webhook") {
+      if (request.method !== "POST") {
+        return cors({ error: "Method not allowed" }, 405);
+      }
+
+      try {
+        const payload = await request.text();
+        const headers = request.headers;
+        const event = JSON.parse(payload);
+
+        console.log('Webhook received:', event.event_type);
+
+        // Verify webhook signature (skip in demo mode)
+        // const isValid = await verifyPayPalWebhook(payload, headers, env);
+        // if (!isValid) {
+        //   return cors({ error: "Invalid webhook signature" }, 403);
+        // }
+
+        // Handle different event types
+        switch (event.event_type) {
+          case 'PAYMENT.CAPTURE.COMPLETED':
+          case 'CHECKOUT.ORDER.APPROVED': {
+            const orderId = event.resource?.id;
+            const customId = event.resource?.custom_id || event.resource?.purchase_units?.[0]?.custom_id;
+            
+            console.log('Payment completed:', orderId, customId);
+
+            if (customId && customId.startsWith('credits_')) {
+              // Parse: credits_{uid}_{packageIndex}_{timestamp}
+              const parts = customId.split('_');
+              if (parts.length >= 3) {
+                const userId = parts[1];
+                const packageIndex = parseInt(parts[2]);
+
+                // Update order status
+                await env.DB.prepare(`
+                  UPDATE paypal_orders 
+                  SET status = 'completed', updated_at = datetime('now')
+                  WHERE order_id = ?
+                `).bind(orderId).run();
+
+                // Deliver credits
+                await deliverCreditsToUser(env, userId, packageIndex);
+              }
+            }
+            break;
+          }
+
+          case 'PAYMENT.CAPTURE.DENIED':
+          case 'PAYMENT.CAPTURE.DECLINED': {
+            const orderId = event.resource?.id;
+            console.log('Payment denied:', orderId);
+
+            await env.DB.prepare(`
+              UPDATE paypal_orders 
+              SET status = 'failed', updated_at = datetime('now')
+              WHERE order_id = ?
+            `).bind(orderId).run();
+            break;
+          }
+
+          case 'PAYMENT.CAPTURE.REFUNDED': {
+            const orderId = event.resource?.id;
+            console.log('Payment refunded:', orderId);
+
+            await env.DB.prepare(`
+              UPDATE paypal_orders 
+              SET status = 'refunded', updated_at = datetime('now')
+              WHERE order_id = ?
+            `).bind(orderId).run();
+            break;
+          }
+
+          default:
+            console.log('Unhandled event type:', event.event_type);
+        }
+
+        return cors({ received: true });
+      } catch (e) {
+        console.error('Webhook processing error:', e);
+        return cors({ error: "Webhook processing failed" }, 500);
+      }
     }
 
     // Get plans info
@@ -164,7 +333,6 @@ export default {
 
         const accessToken = await getPayPalAccessToken(env);
 
-        // Create subscription
         const response = await fetch('https://api-m.paypal.com/v1/billing/subscriptions', {
           method: 'POST',
           headers: {
@@ -172,7 +340,7 @@ export default {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            plan_id: `PROVIDE_YOUR_PAYPAL_PLAN_ID_${plan}`, // Need to create product & plan in PayPal first
+            plan_id: `PROVIDE_YOUR_PAYPAL_PLAN_ID_${plan}`,
             subscriber: { custom_id: uid },
             custom_id: `sub_${uid}_${plan}_${Date.now()}`
           })
@@ -188,23 +356,11 @@ export default {
       }
     }
 
-    // PayPal webhook / return URL
+    // PayPal return URL (after payment)
     if (url.pathname === "/api/paypal-return") {
-      const orderId = url.searchParams.get("token") || url.searchParams.get("orderId");
-      const status = url.searchParams.get("status");
-      
-      if (orderId) {
-        // Update order status
-        await env.DB.prepare(`
-          UPDATE paypal_orders SET status = ?, updated_at = datetime('now')
-          WHERE order_id = ?
-        `).bind(status === 'COMPLETED' ? 'completed' : 'processing', orderId).run();
-      }
-      
-      // Redirect back to app
       return new Response(null, {
         status: 302,
-        headers: { 'Location': '/' }
+        headers: { 'Location': '/?payment=success' }
       });
     }
 
@@ -214,25 +370,19 @@ export default {
       if (!orderId) return cors({ error: "orderId required" }, 400);
 
       try {
-        // Check local status first
         const localOrder = await env.DB.prepare("SELECT * FROM paypal_orders WHERE order_id = ?").bind(orderId).first();
         
         if (localOrder?.status === 'completed') {
-          // Deliver credits
-          if (localOrder.type === 'credits' && localOrder.package_index !== null) {
-            const pkg = CREDIT_PACKAGES[localOrder.package_index];
-            if (pkg) {
-              await env.DB.prepare(`
-                INSERT INTO credits (user_id, amount, plan_type, expires_at)
-                VALUES (?, ?, ?, datetime('now', '+' || ? || ' days'))
-              `).bind(localOrder.user_id, pkg.credits, pkg.name, pkg.days).run();
-            }
-          }
+          // Credits should already be delivered via webhook
+          return cors({
+            status: 'completed',
+            credits: CREDIT_PACKAGES[localOrder.package_index as number]?.credits || 0
+          });
         }
 
         return cors({
           status: localOrder?.status || 'unknown',
-          credits: localOrder?.status === 'completed' ? CREDIT_PACKAGES[localOrder.package_index as number]?.credits : null
+          credits: null
         });
       } catch (e) {
         return cors({ error: "Check failed" }, 500);
@@ -246,7 +396,6 @@ export default {
         const { uid, email, name, picture } = await request.json();
         if (!uid || !email) return cors({ error: "uid and email required" }, 400);
 
-        // Upsert user
         await env.DB.prepare(`
           INSERT INTO users (id, email, name, picture, last_login, usage_count)
           VALUES (?, ?, ?, ?, datetime('now'), 1)
@@ -257,7 +406,6 @@ export default {
             usage_count = usage_count + 1
         `).bind(uid, email, name || null, picture || null).run();
 
-        // Give welcome credits if first login
         const existing = await env.DB.prepare("SELECT * FROM credits WHERE user_id = ?").bind(uid).first();
         if (!existing) {
           await env.DB.prepare(`
@@ -275,11 +423,9 @@ export default {
       const uid = url.searchParams.get("uid");
       if (!uid) return cors({ error: "uid required" }, 400);
 
-      // Get subscription
       const sub = await env.DB.prepare("SELECT * FROM subscriptions WHERE user_id = ? AND status = 'active'").bind(uid).first();
       const plan = sub ? PLANS[sub.plan as keyof typeof PLANS] : null;
 
-      // Get credit balance
       const credits = await env.DB.prepare(`
         SELECT SUM(amount) as total FROM credits 
         WHERE user_id = ? AND (expires_at IS NULL OR expires_at > datetime('now'))
@@ -297,12 +443,10 @@ export default {
         const { uid } = await request.json();
         if (!uid) return cors({ error: "uid required" }, 400);
 
-        // Check subscription first
         const sub = await env.DB.prepare("SELECT * FROM subscriptions WHERE user_id = ? AND status = 'active'").bind(uid).first();
         const plan = sub ? PLANS[sub.plan as keyof typeof PLANS] : null;
         if (plan?.monthly_credits === -1) return cors({ success: true, unlimited: true });
 
-        // Check credits
         const credits = await env.DB.prepare(`
           SELECT * FROM credits 
           WHERE user_id = ? AND amount > 0 AND (expires_at IS NULL OR expires_at > datetime('now'))
@@ -313,7 +457,6 @@ export default {
           return cors({ error: "No credits", purchase_required: true }, 403);
         }
 
-        // Deduct credit
         if (credits) {
           await env.DB.prepare("UPDATE credits SET amount = amount - 1 WHERE id = ?").bind(credits.id).run();
         }
@@ -393,7 +536,7 @@ export default {
       return cors({ total_usage: total?.count || 0, week_usage: week?.count || 0 });
     }
 
-    // Simulate purchase (in production, this would be after PayPal webhook)
+    // Demo purchase (for testing without PayPal)
     if (url.pathname === "/api/purchase") {
       if (request.method !== "POST") return cors({ error: "Method not allowed" }, 405);
       try {
@@ -403,7 +546,6 @@ export default {
         const pkg = CREDIT_PACKAGES[package_index];
         if (!pkg) return cors({ error: "Invalid package" }, 400);
 
-        // Add credits
         await env.DB.prepare(`
           INSERT INTO credits (user_id, amount, plan_type, expires_at)
           VALUES (?, ?, ?, datetime('now', '+' || ? || ' days'))
@@ -413,7 +555,7 @@ export default {
       } catch (e) { return cors({ error: "Failed" }, 500); }
     }
 
-    // Simulate subscription
+    // Demo subscription
     if (url.pathname === "/api/subscribe") {
       if (request.method !== "POST") return cors({ error: "Method not allowed" }, 405);
       try {
@@ -434,7 +576,7 @@ export default {
 
     // Health check
     if (url.pathname === "/health") {
-      return cors({ status: "ok", plans: PLANS, packages: CREDIT_PACKAGES, subscriptions: SUBSCRIPTION_PLANS });
+      return cors({ status: "ok", webhook_url: "https://image-enhancement-worker.feiz45607.workers.dev/api/paypal-webhook" });
     }
 
     return cors({ message: "Image Enhancement API" });
