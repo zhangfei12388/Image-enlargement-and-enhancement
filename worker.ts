@@ -37,7 +37,14 @@ function cors(data: unknown, status = 200) {
 
 // Get PayPal Access Token
 async function getPayPalAccessToken(env: Env): Promise<string> {
-  const auth = Buffer.from(`${env.PAYPAL_CLIENT_ID}:${env.PAYPAL_CLIENT_SECRET}`).toString('base64');
+  const clientId = env.PAYPAL_CLIENT_ID || '';
+  const clientSecret = env.PAYPAL_CLIENT_SECRET || '';
+  
+  if (!clientId || !clientSecret) {
+    throw new Error('PayPal credentials not configured');
+  }
+  
+  const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
   
   const response = await fetch('https://api-m.paypal.com/v1/oauth2/token', {
     method: 'POST',
@@ -49,6 +56,11 @@ async function getPayPalAccessToken(env: Env): Promise<string> {
   });
   
   const data = await response.json();
+  
+  if (!data.access_token) {
+    throw new Error('Failed to get PayPal access token: ' + JSON.stringify(data));
+  }
+  
   return data.access_token;
 }
 
@@ -76,6 +88,11 @@ async function createPayPalOrder(env: Env, amount: string, description: string, 
   });
   
   const order = await response.json();
+  
+  if (order.error || order.status === 'INSTRUMENT_DECLINED' || order.status === 'INTERNAL_SERVER_ERROR') {
+    throw new Error('PayPal order creation failed: ' + JSON.stringify(order));
+  }
+  
   const approvalUrl = order.links?.find((link: any) => link.rel === 'approve')?.href;
   
   return {
@@ -315,9 +332,9 @@ export default {
         ).run();
 
         return cors({ orderId: orderData.orderId, approvalUrl: orderData.approvalUrl });
-      } catch (e) {
+      } catch (e: any) {
         console.error('Create order error:', e);
-        return cors({ error: "Failed to create order" }, 500);
+        return cors({ error: "Failed to create order", details: e.message }, 500);
       }
     }
 
