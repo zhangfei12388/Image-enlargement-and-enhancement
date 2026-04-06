@@ -354,17 +354,6 @@
                 clearInterval(paymentCheckInterval);
                 checkOrderStatus(data.orderId);
               }
-              try {
-                const statusRes = await fetch(WORKER_URL + '/api/check-order?orderId=' + data.orderId);
-                const statusData = await statusRes.json();
-                if (statusData.status === 'completed') {
-                  clearInterval(paymentCheckInterval);
-                  if (!paypalWindow.closed) paypalWindow.close();
-                  document.getElementById('paymentStatus').textContent = '✅ Payment Completed!';
-                  document.getElementById('paymentPackage').textContent = `${statusData.credits} credits added!`;
-                  setTimeout(() => { closePaymentModal(); loadUserData(); }, 1500);
-                }
-              } catch (e) {}
             }, 2000);
           }
         } else {
@@ -383,12 +372,19 @@
       try {
         const res = await fetch(WORKER_URL + '/api/check-order?orderId=' + orderId);
         const data = await res.json();
+        console.log('Order status:', data);
         if (data.status === 'completed') {
-          alert(`🎉 Success! ${data.credits} credits added!`);
           sessionStorage.removeItem('pendingPaypalOrder');
-          loadUserData();
+          // Reload user data and update UI immediately
+          await loadUserData();
+          // Also reload the page to ensure all UI updates
+          window.location.reload();
+        } else if (data.error) {
+          alert('Payment check failed: ' + data.error);
         }
-      } catch (e) {}
+      } catch (e) {
+        console.error('Check order error:', e);
+      }
       currentPaypalOrderId = null;
     }
 
