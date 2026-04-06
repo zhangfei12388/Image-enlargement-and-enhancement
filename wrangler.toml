@@ -11,9 +11,9 @@ binding = "DB"
 database_name = "image-enhancer-users"
 database_id = "f62033e7-97ce-417f-8e87-cac87db83c02"
 
-# PayPal Configuration (Live)
+# PayPal Configuration (Sandbox for testing)
 [vars]
-PAYPAL_MODE = "live"
+PAYPAL_MODE = "sandbox"
 
 # Secrets (set via wrangler secret put):
 # PAYPAL_CLIENT_ID
