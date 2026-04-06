@@ -411,8 +411,23 @@ export default {
         });
         const order = await orderResponse.json();
 
+        // Get custom_id from order for user_id and package_index
+        const customId = order.purchase_units?.[0]?.custom_id || '';
+        const parts = customId.split('_');
+        let userId = '';
+        let packageIndex = 0;
+        if (parts.length >= 3) {
+          userId = parts[1];
+          packageIndex = parseInt(parts[2]);
+        }
+
         if (order.status === 'COMPLETED') {
-          return { success: true }; // Already captured
+          // Already completed, just deliver credits
+          if (userId && packageIndex >= 0) {
+            await deliverCreditsToUser(env, userId, packageIndex);
+            return { success: true, credits: CREDIT_PACKAGES[packageIndex]?.credits || 0 };
+          }
+          return { success: true };
         }
 
         if (order.status === 'APPROVED') {
@@ -427,12 +442,8 @@ export default {
           const captureResult = await captureResponse.json();
 
           if (captureResult.status === 'COMPLETED') {
-            // Get user_id and package_index from custom_id
-            const customId = captureResult.purchase_units?.[0]?.custom_id || '';
-            const parts = customId.split('_');
-            if (parts.length >= 3) {
-              const userId = parts[1];
-              const packageIndex = parseInt(parts[2]);
+            // Deliver credits
+            if (userId && packageIndex >= 0) {
               await deliverCreditsToUser(env, userId, packageIndex);
               return { success: true, credits: CREDIT_PACKAGES[packageIndex]?.credits || 0 };
             }
