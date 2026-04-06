@@ -35,10 +35,16 @@ function cors(data: unknown, status = 200) {
   });
 }
 
+// Get PayPal API base URL based on mode
+function getPayPalBaseUrl(mode: string): string {
+  return mode === 'live' ? 'https://api.paypal.com' : 'https://api-m.sandbox.paypal.com';
+}
+
 // Get PayPal Access Token
 async function getPayPalAccessToken(env: Env): Promise<string> {
   const clientId = env.PAYPAL_CLIENT_ID || '';
   const clientSecret = env.PAYPAL_CLIENT_SECRET || '';
+  const mode = (env as any).PAYPAL_MODE || 'live';
   
   if (!clientId || !clientSecret) {
     throw new Error('PayPal credentials not configured');
@@ -46,8 +52,9 @@ async function getPayPalAccessToken(env: Env): Promise<string> {
   
   // Use btoa for base64 encoding (compatible with Cloudflare Workers)
   const auth = btoa(`${clientId}:${clientSecret}`);
+  const baseUrl = getPayPalBaseUrl(mode);
   
-  const response = await fetch('https://api-m.paypal.com/v1/oauth2/token', {
+  const response = await fetch(`${baseUrl}/v1/oauth2/token', {
     method: 'POST',
     headers: {
       'Authorization': `Basic ${auth}`,
@@ -69,7 +76,7 @@ async function getPayPalAccessToken(env: Env): Promise<string> {
 async function createPayPalOrder(env: Env, amount: string, description: string, customId: string): Promise<{ orderId: string, approvalUrl: string }> {
   const accessToken = await getPayPalAccessToken(env);
   
-  const response = await fetch('https://api-m.paypal.com/v2/checkout/orders', {
+  const response = await fetch(`${baseUrl}/v2/checkout/orders', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${accessToken}`,
@@ -143,8 +150,10 @@ async function verifyPayPalWebhook(payload: string, headers: Headers, env: Env):
 
   try {
     const accessToken = await getPayPalAccessToken(env);
+    const mode = (env as any).PAYPAL_MODE || 'live';
+    const baseUrl = getPayPalBaseUrl(mode);
     
-    const response = await fetch('https://api-m.paypal.com/v1/notifications/verify-webhook-signature', {
+    const response = await fetch(`${baseUrl}/v1/notifications/verify-webhook-signature', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -350,8 +359,10 @@ export default {
         if (!subPlan) return cors({ error: "Invalid plan" }, 400);
 
         const accessToken = await getPayPalAccessToken(env);
+        const mode = (env as any).PAYPAL_MODE || 'live';
+        const baseUrl = getPayPalBaseUrl(mode);
 
-        const response = await fetch('https://api-m.paypal.com/v1/billing/subscriptions', {
+        const response = await fetch(`${baseUrl}/v1/billing/subscriptions', {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${accessToken}`,
