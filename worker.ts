@@ -499,18 +499,27 @@ export default {
         const { uid, email, name, picture } = await request.json();
         if (!uid || !email) return cors({ error: "uid and email required" }, 400);
 
-        await env.DB.prepare(`
-          INSERT INTO users (id, email, name, picture, last_login, usage_count)
-          VALUES (?, ?, ?, ?, datetime('now'), 1)
-          ON CONFLICT(id) DO UPDATE SET
-            name = COALESCE(excluded.name, name),
-            picture = COALESCE(excluded.picture, picture),
-            last_login = datetime('now'),
-            usage_count = usage_count + 1
-        `).bind(uid, email, name || null, picture || null).run();
-
-        const existing = await env.DB.prepare("SELECT * FROM credits WHERE user_id = ?").bind(uid).first();
-        if (!existing) {
+        // Check if user exists first
+        const existingUser = await env.DB.prepare("SELECT * FROM users WHERE id = ?").bind(uid).first();
+        
+        if (existingUser) {
+          // Update existing user
+          await env.DB.prepare(`
+            UPDATE users SET
+              name = COALESCE(?, name),
+              picture = COALESCE(?, picture),
+              last_login = datetime('now'),
+              usage_count = usage_count + 1
+            WHERE id = ?
+          `).bind(name || null, picture || null, uid).run();
+        } else {
+          // Insert new user
+          await env.DB.prepare(`
+            INSERT INTO users (id, email, name, picture, last_login, usage_count)
+            VALUES (?, ?, ?, ?, datetime('now'), 1)
+          `).bind(uid, email, name || null, picture || null).run();
+          
+          // Give welcome credits
           await env.DB.prepare(`
             INSERT INTO credits (user_id, amount, plan_type, expires_at)
             VALUES (?, 3, 'welcome', datetime('now', '+30 days'))
@@ -518,7 +527,7 @@ export default {
         }
 
         return cors({ success: true });
-      } catch (e) { return cors({ error: "Failed" }, 500); }
+      } catch (e: any) { return cors({ error: "Failed: " + e.message }, 500); }
     }
 
     // Get user balance
@@ -667,11 +676,20 @@ export default {
 
         if (!PLANS[plan as keyof typeof PLANS]) return cors({ error: "Invalid plan" }, 400);
 
-        await env.DB.prepare(`
-          INSERT INTO subscriptions (user_id, plan, status, expires_at)
-          VALUES (?, ?, 'active', datetime('now', '+30 days'))
-          ON CONFLICT(user_id) DO UPDATE SET plan = excluded.plan, status = 'active', expires_at = datetime('now', '+30 days')
-        `).bind(uid, plan).run();
+        // Check if subscription exists
+        const existingSub = await env.DB.prepare("SELECT * FROM subscriptions WHERE user_id = ?").bind(uid).first();
+        
+        if (existingSub) {
+          await env.DB.prepare(`
+            UPDATE subscriptions SET plan = ?, status = 'active', expires_at = datetime('now', '+30 days')
+            WHERE user_id = ?
+          `).bind(plan, uid).run();
+        } else {
+          await env.DB.prepare(`
+            INSERT INTO subscriptions (user_id, plan, status, expires_at)
+            VALUES (?, ?, 'active', datetime('now', '+30 days'))
+          `).bind(uid, plan).run();
+        }
 
         return cors({ success: true, plan: PLANS[plan as keyof typeof PLANS].name });
       } catch (e) { return cors({ error: "Failed" }, 500); }
