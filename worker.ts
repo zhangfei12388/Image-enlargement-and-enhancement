@@ -395,7 +395,60 @@ export default {
       });
     }
 
-    // Check order status (for frontend polling)
+    // Capture PayPal order (manual capture when user returns from PayPal)
+    async function capturePayPalOrder(env: Env, orderId: string): Promise<{ success: boolean; error?: string; credits?: number }> {
+      try {
+        const accessToken = await getPayPalAccessToken(env);
+        const mode = (env as any).PAYPAL_MODE || 'live';
+        const baseUrl = getPayPalBaseUrl(mode);
+
+        // Get order status from PayPal
+        const orderResponse = await fetch(`${baseUrl}/v2/checkout/orders/${orderId}`, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        const order = await orderResponse.json();
+
+        if (order.status === 'COMPLETED') {
+          return { success: true }; // Already captured
+        }
+
+        if (order.status === 'APPROVED') {
+          // Capture the order
+          const captureResponse = await fetch(`${baseUrl}/v2/checkout/orders/${orderId}/capture`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          const captureResult = await captureResponse.json();
+
+          if (captureResult.status === 'COMPLETED') {
+            // Get user_id and package_index from custom_id
+            const customId = captureResult.purchase_units?.[0]?.custom_id || '';
+            const parts = customId.split('_');
+            if (parts.length >= 3) {
+              const userId = parts[1];
+              const packageIndex = parseInt(parts[2]);
+              await deliverCreditsToUser(env, userId, packageIndex);
+              return { success: true, credits: CREDIT_PACKAGES[packageIndex]?.credits || 0 };
+            }
+            return { success: true };
+          } else {
+            return { success: false, error: 'Capture failed: ' + JSON.stringify(captureResult) };
+          }
+        }
+
+        return { success: false, error: 'Order not approved yet, status: ' + order.status };
+      } catch (e: any) {
+        return { success: false, error: e.message };
+      }
+    }
+
+    // Check order status (for frontend polling) - also auto-captures if APPROVED
     if (url.pathname === "/api/check-order") {
       const orderId = url.searchParams.get("orderId");
       if (!orderId) return cors({ error: "orderId required" }, 400);
@@ -404,19 +457,38 @@ export default {
         const localOrder = await env.DB.prepare("SELECT * FROM paypal_orders WHERE order_id = ?").bind(orderId).first();
         
         if (localOrder?.status === 'completed') {
-          // Credits should already be delivered via webhook
+          // Credits already delivered
           return cors({
             status: 'completed',
             credits: CREDIT_PACKAGES[localOrder.package_index as number]?.credits || 0
           });
         }
 
+        // Try to capture the order if it's APPROVED
+        const captureResult = await capturePayPalOrder(env, orderId);
+
+        if (captureResult.success) {
+          // Update local order status
+          await env.DB.prepare(`
+            UPDATE paypal_orders SET status = 'completed', updated_at = datetime('now')
+            WHERE order_id = ?
+          `).bind(orderId).run();
+
+          return cors({
+            status: 'completed',
+            credits: captureResult.credits || 0,
+            message: 'Payment captured successfully!'
+          });
+        }
+
+        // Return current status
         return cors({
-          status: localOrder?.status || 'unknown',
-          credits: null
+          status: localOrder?.status || 'pending',
+          credits: null,
+          error: captureResult.error
         });
-      } catch (e) {
-        return cors({ error: "Check failed" }, 500);
+      } catch (e: any) {
+        return cors({ error: "Check failed: " + e.message }, 500);
       }
     }
 
