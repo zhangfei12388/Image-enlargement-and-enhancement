@@ -54,7 +54,7 @@ async function getPayPalAccessToken(env: Env): Promise<string> {
   const auth = btoa(`${clientId}:${clientSecret}`);
   const baseUrl = getPayPalBaseUrl(mode);
   
-  const response = await fetch(`${baseUrl}/v1/oauth2/token', {
+  const response = await fetch(`${baseUrl}/v1/oauth2/token`, {
     method: 'POST',
     headers: {
       'Authorization': `Basic ${auth}`,
@@ -153,7 +153,7 @@ async function verifyPayPalWebhook(payload: string, headers: Headers, env: Env):
     const mode = (env as any).PAYPAL_MODE || 'live';
     const baseUrl = getPayPalBaseUrl(mode);
     
-    const response = await fetch(`${baseUrl}/v1/notifications/verify-webhook-signature', {
+    const response = await fetch(`${baseUrl}/v1/notifications/verify-webhook-signature`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -362,7 +362,7 @@ export default {
         const mode = (env as any).PAYPAL_MODE || 'live';
         const baseUrl = getPayPalBaseUrl(mode);
 
-        const response = await fetch(`${baseUrl}/v1/billing/subscriptions', {
+        const response = await fetch(`${baseUrl}/v1/billing/subscriptions`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${accessToken}`,
