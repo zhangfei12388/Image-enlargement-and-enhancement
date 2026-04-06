@@ -6,6 +6,10 @@ on:
       - main
   workflow_dispatch:
 
+permissions:
+  contents: read
+  deployments: write
+
 jobs:
   deploy-pages:
     runs-on: ubuntu-latest
@@ -20,7 +24,7 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           projectName: image-enlargement-and-enhancement
           directory: .
-          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+          wranglerVersion: '3'
 
   deploy-worker:
     runs-on: ubuntu-latest
