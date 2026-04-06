@@ -76,7 +76,7 @@ async function getPayPalAccessToken(env: Env): Promise<string> {
 async function createPayPalOrder(env: Env, amount: string, description: string, customId: string): Promise<{ orderId: string, approvalUrl: string }> {
   const accessToken = await getPayPalAccessToken(env);
   
-  const response = await fetch(`${baseUrl}/v2/checkout/orders', {
+  const response = await fetch(`${baseUrl}/v2/checkout/orders`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${accessToken}`,
