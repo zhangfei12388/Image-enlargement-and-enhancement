@@ -250,14 +250,21 @@ export default {
             const orderId = event.resource?.id;
             const customId = event.resource?.custom_id || event.resource?.purchase_units?.[0]?.custom_id;
             
-            console.log('Payment completed:', orderId, customId);
+            console.log('[Webhook] Payment event:', event.event_type);
+            console.log('[Webhook] Order ID:', orderId);
+            console.log('[Webhook] Custom ID:', customId);
+            console.log('[Webhook] Full event:', JSON.stringify(event).substring(0, 500));
 
             if (customId && customId.startsWith('credits_')) {
               // Parse: credits_{uid}_{packageIndex}_{timestamp}
               const parts = customId.split('_');
+              console.log('[Webhook] Parsed parts:', parts);
+              
               if (parts.length >= 3) {
                 const userId = parts[1];
                 const packageIndex = parseInt(parts[2]);
+
+                console.log('[Webhook] userId:', userId, 'packageIndex:', packageIndex);
 
                 // Update order status
                 await env.DB.prepare(`
@@ -268,7 +275,12 @@ export default {
 
                 // Deliver credits
                 await deliverCreditsToUser(env, userId, packageIndex);
+                console.log('[Webhook] Credits delivered successfully');
+              } else {
+                console.error('[Webhook] Invalid custom_id format, parts.length:', parts.length);
               }
+            } else {
+              console.error('[Webhook] custom_id does not start with credits_:', customId);
             }
             break;
           }
