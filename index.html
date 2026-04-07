@@ -641,13 +641,16 @@
               <h3 class="text-xl font-bold text-amber-600">Payment Not Completed</h3>
               <p class="text-gray-600 mt-2">${msg}</p>
               <div class="mt-4">
-                <button id="checkAgainBtn" class="px-4 py-2 bg-purple-600 text-white rounded-xl font-medium mr-2">Check Again</button>
+                <button id="checkAgainBtn" class="px-4 py-2 bg-purple-600 text-white rounded-xl font-medium mr-2">Try Again</button>
                 <button id="closeModalBtn" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-xl font-medium">Close</button>
               </div>
             </div>
           `;
-          // Attach events after innerHTML
-          document.getElementById('checkAgainBtn').addEventListener('click', () => checkOrderStatus(orderId));
+          // Attach events after innerHTML - reset pendingPaymentResolved for retry
+          document.getElementById('checkAgainBtn').addEventListener('click', () => {
+            pendingPaymentResolved = false;
+            checkOrderStatus(orderId);
+          });
           document.getElementById('closeModalBtn').addEventListener('click', closePaymentModal);
         }
       } catch (e) {
