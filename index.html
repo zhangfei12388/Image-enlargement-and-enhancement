@@ -233,6 +233,7 @@
     
     let currentUser = null, balance = 3, isUnlimited = false, currentFile = null;
     let currentPaypalOrderId = null, paymentCheckInterval = null;
+    let pendingPaymentResolved = false;
 
     function showPage(p) {
       document.getElementById('mainContent').classList.toggle('hidden', p!='home');
@@ -245,7 +246,6 @@
     function closePaymentModal() {
       document.getElementById('paymentModal').classList.add('hidden');
       if (paymentCheckInterval) { clearInterval(paymentCheckInterval); paymentCheckInterval = null; }
-      if (currentPaypalOrderId) checkOrderStatus(currentPaypalOrderId);
     }
 
     async function handleGoogleLogin() {
@@ -328,6 +328,7 @@
 
     function initPaypalPayment(packageIndex) {
       if (!currentUser) { alert('Please sign in first'); return; }
+      if (pendingPaymentResolved) { pendingPaymentResolved = false; }
       
       const pkg = packages[packageIndex];
       document.getElementById('paymentModal').classList.remove('hidden');
@@ -342,19 +343,45 @@
       .then(res => res.json())
       .then(data => {
         if (data.approvalUrl) {
-          document.getElementById('paymentStatus').textContent = 'Redirecting to PayPal...';
+          document.getElementById('paymentStatus').textContent = 'Please complete payment in the popup window...';
           currentPaypalOrderId = data.orderId;
           sessionStorage.setItem('pendingPaypalOrder', data.orderId);
           
+          // Open PayPal in popup
           const paypalWindow = window.open(data.approvalUrl, 'paypal', 'width=600,height=700,scrollbars=yes');
           
           if (paypalWindow) {
+            // Poll for payment completion every 1 second
             paymentCheckInterval = setInterval(async () => {
-              if (paypalWindow.closed) {
-                clearInterval(paymentCheckInterval);
-                checkOrderStatus(data.orderId);
+              try {
+                // Check if popup is closed or we can detect payment completion
+                if (paypalWindow.closed) {
+                  clearInterval(paymentCheckInterval);
+                  paymentCheckInterval = null;
+                  // Wait a moment for PayPal to process
+                  await new Promise(r => setTimeout(r, 1500));
+                  checkOrderStatus(data.orderId);
+                } else {
+                  // Also try to check status periodically even while popup is open
+                  // This catches cases where popup redirects to success page
+                  const res = await fetch(WORKER_URL + '/api/check-order?orderId=' + data.orderId);
+                  const result = await res.json();
+                  if (result.status === 'completed' && !pendingPaymentResolved) {
+                    pendingPaymentResolved = true;
+                    clearInterval(paymentCheckInterval);
+                    paymentCheckInterval = null;
+                    paypalWindow.close();
+                    handlePaymentSuccess(result.credits || pkg.credits);
+                  }
+                }
+              } catch (e) {
+                console.error('Payment check error:', e);
               }
             }, 2000);
+          } else {
+            // Popup blocked, use redirect fallback
+            document.getElementById('paymentStatus').textContent = 'Popup blocked. Redirecting...';
+            window.location.href = data.approvalUrl;
           }
         } else {
           document.getElementById('paymentStatus').textContent = '❌ Error: ' + (data.error || 'Failed');
@@ -366,24 +393,70 @@
         setTimeout(() => closePaymentModal(), 3000);
       });
     }
+    
+    function handlePaymentSuccess(credits) {
+      document.getElementById('paymentModal').classList.add('hidden');
+      if (paymentCheckInterval) { clearInterval(paymentCheckInterval); paymentCheckInterval = null; }
+      
+      // Refresh user data
+      loadUserData();
+      updateCreditsBanner();
+      
+      // Show success message
+      const modal = document.getElementById('paymentModal');
+      modal.classList.remove('hidden');
+      modal.querySelector('.p-6').innerHTML = `
+        <div class="text-center">
+          <div class="text-6xl mb-4">✅</div>
+          <h3 class="text-xl font-bold text-green-600">Payment Successful!</h3>
+          <p class="text-gray-600 mt-2">You received <strong>${credits} credits</strong></p>
+          <button onclick="closePaymentModal(); showPage('pricing');" class="mt-4 px-6 py-2 bg-purple-600 text-white rounded-xl font-medium">Continue</button>
+        </div>
+      `;
+    }
 
     async function checkOrderStatus(orderId) {
       if (!orderId) return;
+      if (pendingPaymentResolved) return;
+      
       try {
         const res = await fetch(WORKER_URL + '/api/check-order?orderId=' + orderId);
         const data = await res.json();
         console.log('Order status:', data);
+        
         if (data.status === 'completed') {
+          pendingPaymentResolved = true;
           sessionStorage.removeItem('pendingPaypalOrder');
-          // Reload user data and update UI immediately
-          await loadUserData();
-          // Also reload the page to ensure all UI updates
-          window.location.reload();
-        } else if (data.error) {
-          alert('Payment check failed: ' + data.error);
+          handlePaymentSuccess(data.credits || 0);
+        } else {
+          // Order not completed - show appropriate message
+          let msg = 'Payment not completed yet.';
+          if (data.error) {
+            if (data.error.includes('not approved')) {
+              msg = 'Payment was not approved. Please try again.';
+            } else {
+              msg = 'Payment status: ' + data.error;
+            }
+          }
+          
+          // Update modal with status
+          const modal = document.getElementById('paymentModal');
+          modal.classList.remove('hidden');
+          modal.querySelector('.p-6').innerHTML = `
+            <div class="text-center">
+              <div class="text-6xl mb-4">⚠️</div>
+              <h3 class="text-xl font-bold text-amber-600">Payment Not Completed</h3>
+              <p class="text-gray-600 mt-2">${msg}</p>
+              <div class="mt-4">
+                <button onclick="checkOrderStatus('${orderId}')" class="px-4 py-2 bg-purple-600 text-white rounded-xl font-medium mr-2">Check Again</button>
+                <button onclick="closePaymentModal();" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-xl font-medium">Close</button>
+              </div>
+            </div>
+          `;
         }
       } catch (e) {
         console.error('Check order error:', e);
+        document.getElementById('paymentStatus').textContent = '❌ Connection error checking payment';
       }
       currentPaypalOrderId = null;
     }

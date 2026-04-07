@@ -402,6 +402,8 @@ export default {
         const mode = (env as any).PAYPAL_MODE || 'live';
         const baseUrl = getPayPalBaseUrl(mode);
 
+        console.log(`[PayPal] Checking order ${orderId} in ${mode} mode`);
+
         // Get order status from PayPal
         const orderResponse = await fetch(`${baseUrl}/v2/checkout/orders/${orderId}`, {
           headers: {
@@ -409,7 +411,15 @@ export default {
             'Content-Type': 'application/json'
           }
         });
+        
+        if (!orderResponse.ok) {
+          const errorText = await orderResponse.text();
+          console.error(`[PayPal] Order fetch failed: ${orderResponse.status} - ${errorText}`);
+          return { success: false, error: `Failed to fetch order: ${orderResponse.status}` };
+        }
+        
         const order = await orderResponse.json();
+        console.log(`[PayPal] Order status: ${order.status}`);
 
         // Get custom_id from order for user_id and package_index
         const customId = order.purchase_units?.[0]?.custom_id || '';
@@ -419,18 +429,20 @@ export default {
         if (parts.length >= 3) {
           userId = parts[1];
           packageIndex = parseInt(parts[2]);
+          console.log(`[PayPal] Parsed userId: ${userId}, packageIndex: ${packageIndex}`);
+        } else {
+          console.error(`[PayPal] Invalid custom_id format: ${customId}`);
+          return { success: false, error: 'Invalid order data (missing user info)' };
         }
 
         if (order.status === 'COMPLETED') {
-          // Already completed, just deliver credits
-          if (userId && packageIndex >= 0) {
-            await deliverCreditsToUser(env, userId, packageIndex);
-            return { success: true, credits: CREDIT_PACKAGES[packageIndex]?.credits || 0 };
-          }
-          return { success: true };
+          console.log(`[PayPal] Order already completed, delivering credits`);
+          await deliverCreditsToUser(env, userId, packageIndex);
+          return { success: true, credits: CREDIT_PACKAGES[packageIndex]?.credits || 0 };
         }
 
         if (order.status === 'APPROVED') {
+          console.log(`[PayPal] Order APPROVED, capturing...`);
           // Capture the order
           const captureResponse = await fetch(`${baseUrl}/v2/checkout/orders/${orderId}/capture`, {
             method: 'POST',
@@ -439,22 +451,28 @@ export default {
               'Content-Type': 'application/json'
             }
           });
+          
+          if (!captureResponse.ok) {
+            const errorText = await captureResponse.text();
+            console.error(`[PayPal] Capture failed: ${captureResponse.status} - ${errorText}`);
+            return { success: false, error: `Capture failed: ${captureResponse.status}` };
+          }
+          
           const captureResult = await captureResponse.json();
+          console.log(`[PayPal] Capture result: ${captureResult.status}`);
 
           if (captureResult.status === 'COMPLETED') {
-            // Deliver credits
-            if (userId && packageIndex >= 0) {
-              await deliverCreditsToUser(env, userId, packageIndex);
-              return { success: true, credits: CREDIT_PACKAGES[packageIndex]?.credits || 0 };
-            }
-            return { success: true };
+            await deliverCreditsToUser(env, userId, packageIndex);
+            return { success: true, credits: CREDIT_PACKAGES[packageIndex]?.credits || 0 };
           } else {
-            return { success: false, error: 'Capture failed: ' + JSON.stringify(captureResult) };
+            console.error(`[PayPal] Capture status not COMPLETED: ${JSON.stringify(captureResult)}`);
+            return { success: false, error: `Capture status: ${captureResult.status}` };
           }
         }
 
-        return { success: false, error: 'Order not approved yet, status: ' + order.status };
+        return { success: false, error: `Order status: ${order.status} (not APPROVED or COMPLETED)` };
       } catch (e: any) {
+        console.error(`[PayPal] Error in capturePayPalOrder: ${e.message}`);
         return { success: false, error: e.message };
       }
     }
@@ -467,15 +485,15 @@ export default {
       try {
         const localOrder = await env.DB.prepare("SELECT * FROM paypal_orders WHERE order_id = ?").bind(orderId).first();
         
+        // If already marked as completed, return success
         if (localOrder?.status === 'completed') {
-          // Credits already delivered
           return cors({
             status: 'completed',
             credits: CREDIT_PACKAGES[localOrder.package_index as number]?.credits || 0
           });
         }
 
-        // Try to capture the order if it's APPROVED
+        // Get fresh status from PayPal
         const captureResult = await capturePayPalOrder(env, orderId);
 
         if (captureResult.success) {
@@ -492,13 +510,14 @@ export default {
           });
         }
 
-        // Return current status
+        // Return current status with debug info
         return cors({
           status: localOrder?.status || 'pending',
           credits: null,
           error: captureResult.error
         });
       } catch (e: any) {
+        console.error('Check order error:', e);
         return cors({ error: "Check failed: " + e.message }, 500);
       }
     }
