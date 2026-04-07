@@ -606,6 +606,8 @@
         
         if (data.status === 'completed') {
           pendingPaymentResolved = true;
+          // Mark this order as handled to prevent repeated processing
+          sessionStorage.setItem('paymentHandled_' + orderId, 'true');
           sessionStorage.removeItem('pendingPaypalOrder');
           handlePaymentSuccess(data.credits || 0);
         } else {
@@ -659,8 +661,15 @@
         document.getElementById('authSection').innerHTML = '<button onclick="document.getElementById(\'profileModal\').classList.remove(\'hidden\');loadUserData();" class="flex items-center gap-2"><img src="' + avatar + '" class="w-8 h-8 rounded-full border border-white/50"><span class="font-medium">' + name + '</span></button>';
         recordLogin(user);
         loadUserData();
+        
+        // Check for pending payment only once
         const pendingOrder = sessionStorage.getItem('pendingPaypalOrder');
-        if (pendingOrder) setTimeout(() => checkOrderStatus(pendingOrder), 1000);
+        if (pendingOrder && !sessionStorage.getItem('paymentHandled_' + pendingOrder)) {
+          setTimeout(() => checkOrderStatus(pendingOrder), 1000);
+        } else if (pendingOrder) {
+          // Already handled, just clear it
+          sessionStorage.removeItem('pendingPaypalOrder');
+        }
       } else {
         currentUser = null;
         document.getElementById('loginOverlay').classList.remove('hidden');
