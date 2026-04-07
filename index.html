@@ -572,6 +572,13 @@
       document.getElementById('paymentModal').classList.add('hidden');
       if (paymentCheckInterval) { clearInterval(paymentCheckInterval); paymentCheckInterval = null; }
       
+      // Clear all payment related sessionStorage
+      const pendingOrder = sessionStorage.getItem('pendingPaypalOrder');
+      if (pendingOrder) {
+        sessionStorage.setItem('paymentHandled_' + pendingOrder, 'true');
+        sessionStorage.removeItem('pendingPaypalOrder');
+      }
+      
       // Refresh user data
       loadUserData();
       updateCreditsBanner();
@@ -664,11 +671,13 @@
         
         // Check for pending payment only once
         const pendingOrder = sessionStorage.getItem('pendingPaypalOrder');
-        if (pendingOrder && !sessionStorage.getItem('paymentHandled_' + pendingOrder)) {
-          setTimeout(() => checkOrderStatus(pendingOrder), 1000);
-        } else if (pendingOrder) {
-          // Already handled, just clear it
-          sessionStorage.removeItem('pendingPaypalOrder');
+        if (pendingOrder) {
+          if (!sessionStorage.getItem('paymentHandled_' + pendingOrder)) {
+            setTimeout(() => checkOrderStatus(pendingOrder), 1000);
+          } else {
+            // Already handled, clear it
+            sessionStorage.removeItem('pendingPaypalOrder');
+          }
         }
       } else {
         currentUser = null;
