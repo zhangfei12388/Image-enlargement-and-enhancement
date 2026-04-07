@@ -1,0 +1,16 @@
+# robots.txt for remove-bakg-img.cfd
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://remove-bakg-img.cfd/sitemap.xml
+
+# Crawl-delay for polite bots
+Crawl-delay: 1
+
+# Allow important AI tool pages
+Allow: /$
+Allow: /pricing.html
+
+# Block low-value pages
+Disallow: /api/

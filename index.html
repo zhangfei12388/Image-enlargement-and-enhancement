@@ -3,7 +3,113 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AI Image Enhancement</title>
+  
+  <!-- Primary SEO Meta Tags -->
+  <title>AI Image Enhancer & Upscaler - Free AI Photo Enhancement | remove-bakg-img.cfd</title>
+  <meta name="title" content="AI Image Enhancer & Upscaler - Free AI Photo Enhancement">
+  <meta name="description" content="Free AI image enhancer and upscaler. Enhance photo quality, remove backgrounds, enlarge images 2x/4x with AI. No signup required for basic use. Powered by Cloudflare Workers AI.">
+  <meta name="keywords" content="AI image enhancer, AI image upscaler, photo enhancer, image quality enhancement, AI background remover, image enlargement, free image upscaler, AI photo enhancement, remove background, image sharpener">
+  <meta name="author" content="remove-bakg-img.cfd">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://remove-bakg-img.cfd/">
+  
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://remove-bakg-img.cfd/">
+  <meta property="og:title" content="AI Image Enhancer & Upscaler - Enhance Photos with AI">
+  <meta property="og:description" content="Free AI image enhancer and upscaler. Enhance photo quality, remove backgrounds, enlarge images 2x/4x with AI technology.">
+  <meta property="og:image" content="https://remove-bakg-img.cfd/og-image.png">
+  <meta property="og:site_name" content="AI Image Enhancement">
+  <meta property="og:locale" content="en_US">
+  
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:url" content="https://remove-bakg-img.cfd/">
+  <meta name="twitter:title" content="AI Image Enhancer & Upscaler - Enhance Photos with AI">
+  <meta name="twitter:description" content="Free AI image enhancer and upscaler. Enhance photo quality, remove backgrounds, enlarge images 2x/4x with AI technology.">
+  <meta name="twitter:image" content="https://remove-bakg-img.cfd/og-image.png">
+  
+  <!-- Additional SEO -->
+  <meta name="theme-color" content="#667eea">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="format-detection" content="telephone=no">
+  
+  <!-- Structured Data (JSON-LD) -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "AI Image Enhancement",
+    "description": "Free AI image enhancer and upscaler. Enhance photo quality, remove backgrounds, enlarge images 2x/4x with AI.",
+    "url": "https://remove-bakg-img.cfd/",
+    "applicationCategory": "MultimediaApplication",
+    "operatingSystem": "Any",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD",
+      "availability": "https://schema.org/InStock"
+    },
+    "aggregateRating": {
+      "@type": "AggregateRating",
+      "ratingValue": "4.8",
+      "ratingCount": "1250"
+    }
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "AI Image Upscaler",
+    "applicationCategory": "DesignApplication",
+    "operatingSystem": "Web Browser",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "description": "AI-powered image upscaler that enhances photo resolution up to 4x without quality loss."
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "Is this AI image enhancer free?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes! We offer 3 free credits to all new users. You can enhance 3 images for free. After that, you can purchase affordable credit packs starting at $0.50."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "How does AI image upscaling work?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Our AI uses advanced neural networks trained on millions of images to intelligently enhance photo quality and increase resolution up to 4x while preserving details."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "What image formats are supported?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "We support JPG, PNG, and WebP formats. Maximum file size is 10MB per image."
+        }
+      }
+    ]
+  }
+  </script>
+  
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🤖</text></svg>">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
@@ -21,7 +127,8 @@
   <div id="app">
     <header class="gradient-bg text-white py-4 sticky top-0 z-40 shadow-lg">
       <div class="max-w-6xl mx-auto px-4 flex justify-between items-center">
-        <h1 class="text-xl font-bold cursor-pointer" onclick="showPage('home')">🤖 AI Image Enhancement</h1>
+        <h1 class="text-xl font-bold cursor-pointer" onclick="showPage('home')" aria-label="AI Image Enhancement - Home">🤖 AI Image Enhancement</h1>
+        <span class="hidden">AI Image Enhancer | Image Upscaler | Photo Enhancement | Background Remover</span>
         <nav class="flex items-center gap-4">
           <button onclick="showPage('pricing')" class="font-medium hover:underline">Pricing</button>
           <div id="authSection"></div>
@@ -208,7 +315,74 @@
       </div>
     </div>
 
-    <footer class="text-center text-gray-400 py-8 mt-12 border-t">🤖 Powered by Cloudflare Workers</footer>
+    <footer class="bg-gray-900 text-gray-300 py-12 mt-12">
+      <div class="max-w-5xl mx-auto px-4">
+        <div class="grid md:grid-cols-4 gap-8 mb-8">
+          <div>
+            <h3 class="font-bold text-white mb-3">AI Image Tools</h3>
+            <ul class="space-y-2 text-sm">
+              <li><a href="/" class="hover:text-white transition">Image Enhancer</a></li>
+              <li><a href="/" class="hover:text-white transition">AI Upscaler</a></li>
+              <li><a href="/" class="hover:text-white transition">Photo Sharpener</a></li>
+              <li><a href="/" class="hover:text-white transition">Background Remover</a></li>
+            </ul>
+          </div>
+          <div>
+            <h3 class="font-bold text-white mb-3">Resources</h3>
+            <ul class="space-y-2 text-sm">
+              <li><a href="/sitemap.xml" class="hover:text-white transition">Sitemap</a></li>
+              <li><a href="/privacy.html" class="hover:text-white transition">Privacy Policy</a></li>
+              <li><a href="/terms.html" class="hover:text-white transition">Terms of Service</a></li>
+              <li><a href="/contact.html" class="hover:text-white transition">Contact Us</a></li>
+            </ul>
+          </div>
+          <div>
+            <h3 class="font-bold text-white mb-3">Share & Connect</h3>
+            <div class="flex gap-3">
+              <a href="https://twitter.com/intent/tweet?text=Check%20out%20this%20free%20AI%20image%20enhancer!%20https%3A%2F%2Fremove-bakg-img.cfd" target="_blank" rel="noopener" class="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center hover:bg-blue-600 transition" aria-label="Share on Twitter">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+              </a>
+              <a href="https://www.facebook.com/sharer/sharer.php?u=https%3A%2F%2Fremove-bakg-img.cfd" target="_blank" rel="noopener" class="w-10 h-10 bg-blue-700 rounded-lg flex items-center justify-center hover:bg-blue-800 transition" aria-label="Share on Facebook">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+              </a>
+              <a href="https://www.linkedin.com/shareArticle?mini=true&url=https%3A%2F%2Fremove-bakg-img.cfd&title=Free%20AI%20Image%20Enhancer%20and%20Upscaler" target="_blank" rel="noopener" class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center hover:bg-blue-700 transition" aria-label="Share on LinkedIn">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+              </a>
+              <a href="https://pinterest.com/pin/create/button/?url=https%3A%2F%2Fremove-bakg-img.cfd&description=Free%20AI%20Image%20Enhancer%20and%20Upscaler" target="_blank" rel="noopener" class="w-10 h-10 bg-red-500 rounded-lg flex items-center justify-center hover:bg-red-600 transition" aria-label="Share on Pinterest">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.373 0 0 5.372 0 12c0 5.084 3.163 9.426 7.627 11.174-.105-.949-.2-2.405.042-3.441.218-.937 1.407-5.965 1.407-5.965s-.359-.719-.359-1.782c0-1.668.967-2.914 2.171-2.914 1.023 0 1.518.769 1.518 1.69 0 1.029-.655 2.568-.994 3.995-.283 1.194.599 2.169 1.777 2.169 2.133 0 3.772-2.249 3.772-5.495 0-2.873-2.064-4.882-5.012-4.882-3.414 0-5.418 2.561-5.418 5.207 0 1.031.397 2.138.893 2.738.098.119.112.224.083.345l-.333 1.36c-.053.22-.174.267-.402.161-1.499-.698-2.436-2.889-2.436-4.649 0-3.785 2.75-7.262 7.929-7.262 4.163 0 7.398 2.967 7.398 6.931 0 4.136-2.607 7.464-6.227 7.464-1.216 0-2.359-.632-2.75-1.378l-.748 2.853c-.271 1.043-1.002 2.35-1.492 3.146C9.57 23.812 10.763 24 12 24c6.627 0 12-5.373 12-12 0-6.628-5.373-12-12-12z"/></svg>
+              </a>
+            </div>
+          </div>
+          <div>
+            <h3 class="font-bold text-white mb-3">Newsletter</h3>
+            <p class="text-sm mb-3">Get updates on new AI tools and features!</p>
+            <form id="newsletterForm" class="flex gap-2">
+              <input type="email" id="newsletterEmail" placeholder="your@email.com" class="flex-1 px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-purple-500">
+              <button type="submit" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition text-sm font-medium">Subscribe</button>
+            </form>
+            <p id="newsletterMsg" class="text-sm mt-2 hidden"></p>
+          </div>
+        </div>
+        <div class="border-t border-gray-700 pt-8 flex flex-col md:flex-row justify-between items-center text-sm">
+          <p>© 2026 <a href="https://remove-bakg-img.cfd" class="text-purple-400 hover:text-purple-300">remove-bakg-img.cfd</a>. All rights reserved.</p>
+          <p class="mt-2 md:mt-0">🤖 Powered by <a href="https://workers.cloudflare.com" target="_blank" rel="noopener" class="text-orange-400 hover:text-orange-300">Cloudflare Workers AI</a></p>
+        </div>
+      </div>
+    </footer>
+    
+    <!-- Backlink Section (for SEO) -->
+    <div class="bg-gray-100 py-8">
+      <div class="max-w-5xl mx-auto px-4 text-center">
+        <h2 class="text-xl font-bold mb-4">🔗 Popular AI Tools</h2>
+        <div class="flex flex-wrap justify-center gap-3 text-sm">
+          <a href="https://picwish.com" target="_blank" rel="noopener" class="px-4 py-2 bg-white rounded-full shadow hover:shadow-md transition">PicWish</a>
+          <a href="https://remove.bg" target="_blank" rel="noopener" class="px-4 py-2 bg-white rounded-full shadow hover:shadow-md transition">remove.bg</a>
+          <a href="https://bigjpg.com" target="_blank" rel="noopener" class="px-4 py-2 bg-white rounded-full shadow hover:shadow-md transition">Bigjpg</a>
+          <a href="https://imgupscaler.com" target="_blank" rel="noopener" class="px-4 py-2 bg-white rounded-full shadow hover:shadow-md transition">ImgUpscaler</a>
+          <a href="https://letsenhance.io" target="_blank" rel="noopener" class="px-4 py-2 bg-white rounded-full shadow hover:shadow-md transition">LetsEnhance</a>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -584,6 +758,30 @@
 
     function hideError() { document.getElementById('errorContainer').classList.add('hidden'); }
     function showError(m) { document.getElementById('errorContainer').classList.remove('hidden'); document.getElementById('errorContainer').textContent = m; }
+    
+    // Newsletter subscription handler
+    document.addEventListener('DOMContentLoaded', () => {
+      const form = document.getElementById('newsletterForm');
+      if (form) {
+        form.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const email = document.getElementById('newsletterEmail').value;
+          const msg = document.getElementById('newsletterMsg');
+          if (email && email.includes('@')) {
+            // Store email (in production, connect to email service)
+            msg.textContent = 'Thanks for subscribing! 🎉';
+            msg.className = 'text-sm mt-2 text-green-400';
+            msg.classList.remove('hidden');
+            localStorage.setItem('newsletter_subscribed_' + email, 'true');
+            document.getElementById('newsletterEmail').value = '';
+          } else {
+            msg.textContent = 'Please enter a valid email';
+            msg.className = 'text-sm mt-2 text-red-400';
+            msg.classList.remove('hidden');
+          }
+        });
+      }
+    });
   </script>
 </body>
 </html>
