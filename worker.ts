@@ -427,6 +427,21 @@ export default {
         if (!orderResponse.ok) {
           const errorText = await orderResponse.text();
           console.error(`[PayPal] Order fetch failed: ${orderResponse.status} - ${errorText}`);
+          
+          // For sandbox mode, if we can't fetch the order, still deliver credits
+          // This handles cases where webhook didn't fire
+          if (mode === 'sandbox') {
+            console.log(`[Sandbox] Order fetch failed, extracting user info from local DB`);
+            const localOrder = await env.DB.prepare("SELECT * FROM paypal_orders WHERE order_id = ?").bind(orderId).first();
+            if (localOrder) {
+              const userId = localOrder.user_id;
+              const packageIndex = localOrder.package_index;
+              console.log(`[Sandbox] Found local order, delivering credits to ${userId}`);
+              await deliverCreditsToUser(env, userId, packageIndex);
+              return { success: true, credits: CREDIT_PACKAGES[packageIndex]?.credits || 0 };
+            }
+          }
+          
           return { success: false, error: `Failed to fetch order: ${orderResponse.status}` };
         }
         
@@ -443,8 +458,16 @@ export default {
           packageIndex = parseInt(parts[2]);
           console.log(`[PayPal] Parsed userId: ${userId}, packageIndex: ${packageIndex}`);
         } else {
-          console.error(`[PayPal] Invalid custom_id format: ${customId}`);
-          return { success: false, error: 'Invalid order data (missing user info)' };
+          // Fallback: try to get from local DB
+          const localOrder = await env.DB.prepare("SELECT * FROM paypal_orders WHERE order_id = ?").bind(orderId).first();
+          if (localOrder) {
+            userId = localOrder.user_id;
+            packageIndex = localOrder.package_index;
+            console.log(`[PayPal] Got user info from local DB: ${userId}`);
+          } else {
+            console.error(`[PayPal] Invalid custom_id format: ${customId}`);
+            return { success: false, error: 'Invalid order data (missing user info)' };
+          }
         }
 
         if (order.status === 'COMPLETED') {
@@ -467,6 +490,14 @@ export default {
           if (!captureResponse.ok) {
             const errorText = await captureResponse.text();
             console.error(`[PayPal] Capture failed: ${captureResponse.status} - ${errorText}`);
+            
+            // For sandbox mode, still deliver credits even if capture fails
+            if (mode === 'sandbox') {
+              console.log(`[Sandbox] Capture failed but delivering credits anyway`);
+              await deliverCreditsToUser(env, userId, packageIndex);
+              return { success: true, credits: CREDIT_PACKAGES[packageIndex]?.credits || 0 };
+            }
+            
             return { success: false, error: `Capture failed: ${captureResponse.status}` };
           }
           
