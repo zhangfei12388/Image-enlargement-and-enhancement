@@ -572,12 +572,16 @@
       document.getElementById('paymentModal').classList.add('hidden');
       if (paymentCheckInterval) { clearInterval(paymentCheckInterval); paymentCheckInterval = null; }
       
-      // Clear all payment related sessionStorage
-      const pendingOrder = sessionStorage.getItem('pendingPaypalOrder');
-      if (pendingOrder) {
-        sessionStorage.setItem('paymentHandled_' + pendingOrder, 'true');
-        sessionStorage.removeItem('pendingPaypalOrder');
+      // Clear ALL payment related sessionStorage to prevent re-triggering
+      // Get all keys
+      const keysToRemove = [];
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i);
+        if (key && (key === 'pendingPaypalOrder' || key.startsWith('paymentHandled_'))) {
+          keysToRemove.push(key);
+        }
       }
+      keysToRemove.forEach(key => sessionStorage.removeItem(key));
       
       // Refresh user data
       loadUserData();
@@ -671,13 +675,15 @@
         
         // Check for pending payment only once
         const pendingOrder = sessionStorage.getItem('pendingPaypalOrder');
-        if (pendingOrder) {
-          if (!sessionStorage.getItem('paymentHandled_' + pendingOrder)) {
-            setTimeout(() => checkOrderStatus(pendingOrder), 1000);
-          } else {
-            // Already handled, clear it
-            sessionStorage.removeItem('pendingPaypalOrder');
-          }
+        const isAlreadyHandled = pendingOrder && sessionStorage.getItem('paymentHandled_' + pendingOrder);
+        
+        if (pendingOrder && !isAlreadyHandled) {
+          // Not yet handled, check status
+          setTimeout(() => checkOrderStatus(pendingOrder), 1000);
+        } else if (pendingOrder && isAlreadyHandled) {
+          // Already handled, clear sessionStorage
+          sessionStorage.removeItem('pendingPaypalOrder');
+          sessionStorage.removeItem('paymentHandled_' + pendingOrder);
         }
       } else {
         currentUser = null;
