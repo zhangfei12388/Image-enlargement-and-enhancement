@@ -584,15 +584,15 @@
           <div class="text-6xl mb-4">✅</div>
           <h3 class="text-xl font-bold text-green-600">Payment Successful!</h3>
           <p class="text-gray-600 mt-2">You received <strong>${credits} credits</strong></p>
-          <button id="continueBtn" class="mt-4 px-6 py-2 bg-purple-600 text-white rounded-xl font-medium">Continue</button>
+          <p class="text-gray-400 text-sm mt-2">Redirecting to home...</p>
         </div>
       `;
       
-      // Attach event with addEventListener
-      document.getElementById('continueBtn').addEventListener('click', () => {
+      // Auto close modal and go to home after 2 seconds
+      setTimeout(() => {
         closePaymentModal();
-        showPage('pricing');
-      });
+        showPage('home');
+      }, 2000);
     }
 
     async function checkOrderStatus(orderId) {
