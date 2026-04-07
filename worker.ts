@@ -429,21 +429,6 @@ export default {
         if (!orderResponse.ok) {
           const errorText = await orderResponse.text();
           console.error(`[PayPal] Order fetch failed: ${orderResponse.status} - ${errorText}`);
-          
-          // For sandbox mode, if we can't fetch the order, still deliver credits
-          // This handles cases where webhook didn't fire
-          if (mode === 'sandbox') {
-            console.log(`[Sandbox] Order fetch failed, extracting user info from local DB`);
-            const localOrder = await env.DB.prepare("SELECT * FROM paypal_orders WHERE order_id = ?").bind(orderId).first();
-            if (localOrder) {
-              const userId = localOrder.user_id;
-              const packageIndex = localOrder.package_index;
-              console.log(`[Sandbox] Found local order, delivering credits to ${userId}`);
-              await deliverCreditsToUser(env, userId, packageIndex, orderId);
-              return { success: true, credits: CREDIT_PACKAGES[packageIndex]?.credits || 0 };
-            }
-          }
-          
           return { success: false, error: `Failed to fetch order: ${orderResponse.status}` };
         }
         
@@ -460,7 +445,7 @@ export default {
           packageIndex = parseInt(parts[2]);
           console.log(`[PayPal] Parsed userId: ${userId}, packageIndex: ${packageIndex}`);
         } else {
-          // Fallback: try to get from local DB
+          // Try to get from local DB as fallback
           const localOrder = await env.DB.prepare("SELECT * FROM paypal_orders WHERE order_id = ?").bind(orderId).first();
           if (localOrder) {
             userId = localOrder.user_id;
@@ -472,13 +457,12 @@ export default {
           }
         }
 
-        if (order.status === 'COMPLETED' || order.status === 'APPROVED' || (mode === 'sandbox' && order.status === 'CREATED')) {
-          // For sandbox mode, also deliver credits if status is CREATED
-          // This is because sandbox webhook might not fire
-          console.log(`[PayPal] Order status: ${order.status}, delivering credits`);
+        // Only deliver credits if order is COMPLETED or APPROVED
+        if (order.status === 'COMPLETED' || order.status === 'APPROVED') {
+          console.log(`[PayPal] Order status: ${order.status}, capturing if needed`);
           
-          // Capture if not already completed
-          if (order.status === 'APPROVED' || (mode === 'sandbox' && order.status === 'CREATED')) {
+          // Capture if status is APPROVED
+          if (order.status === 'APPROVED') {
             const captureResponse = await fetch(`${baseUrl}/v2/checkout/orders/${orderId}/capture`, {
               method: 'POST',
               headers: {
@@ -486,16 +470,31 @@ export default {
                 'Content-Type': 'application/json'
               }
             });
+            
+            if (!captureResponse.ok) {
+              const errorText = await captureResponse.text();
+              console.error(`[PayPal] Capture failed: ${captureResponse.status} - ${errorText}`);
+              return { success: false, error: `Capture failed: ${captureResponse.status}` };
+            }
+            
             const captureResult = await captureResponse.json();
             console.log(`[PayPal] Capture result: ${captureResult.status}`);
+            
+            // Only deliver if capture was successful
+            if (captureResult.status === 'COMPLETED') {
+              await deliverCreditsToUser(env, userId, packageIndex, orderId);
+              return { success: true, credits: CREDIT_PACKAGES[packageIndex]?.credits || 0 };
+            } else {
+              return { success: false, error: `Capture not completed: ${captureResult.status}` };
+            }
           }
           
+          // If already COMPLETED, just deliver credits
           await deliverCreditsToUser(env, userId, packageIndex, orderId);
           return { success: true, credits: CREDIT_PACKAGES[packageIndex]?.credits || 0 };
         }
 
-        // All cases handled above
-        return { success: false, error: `Order status: ${order.status} (not COMPLETED or APPROVED)` };
+        return { success: false, error: `Order status: ${order.status} (not APPROVED or COMPLETED)` };
       } catch (e: any) {
         console.error(`[PayPal] Error in capturePayPalOrder: ${e.message}`);
         return { success: false, error: e.message };
