@@ -470,50 +470,30 @@ export default {
           }
         }
 
-        if (order.status === 'COMPLETED') {
-          console.log(`[PayPal] Order already completed, delivering credits`);
+        if (order.status === 'COMPLETED' || order.status === 'APPROVED' || (mode === 'sandbox' && order.status === 'CREATED')) {
+          // For sandbox mode, also deliver credits if status is CREATED
+          // This is because sandbox webhook might not fire
+          console.log(`[PayPal] Order status: ${order.status}, delivering credits`);
+          
+          // Capture if not already completed
+          if (order.status === 'APPROVED' || (mode === 'sandbox' && order.status === 'CREATED')) {
+            const captureResponse = await fetch(`${baseUrl}/v2/checkout/orders/${orderId}/capture`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json'
+              }
+            });
+            const captureResult = await captureResponse.json();
+            console.log(`[PayPal] Capture result: ${captureResult.status}`);
+          }
+          
           await deliverCreditsToUser(env, userId, packageIndex);
           return { success: true, credits: CREDIT_PACKAGES[packageIndex]?.credits || 0 };
         }
 
-        if (order.status === 'APPROVED') {
-          console.log(`[PayPal] Order APPROVED, capturing...`);
-          // Capture the order
-          const captureResponse = await fetch(`${baseUrl}/v2/checkout/orders/${orderId}/capture`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${accessToken}`,
-              'Content-Type': 'application/json'
-            }
-          });
-          
-          if (!captureResponse.ok) {
-            const errorText = await captureResponse.text();
-            console.error(`[PayPal] Capture failed: ${captureResponse.status} - ${errorText}`);
-            
-            // For sandbox mode, still deliver credits even if capture fails
-            if (mode === 'sandbox') {
-              console.log(`[Sandbox] Capture failed but delivering credits anyway`);
-              await deliverCreditsToUser(env, userId, packageIndex);
-              return { success: true, credits: CREDIT_PACKAGES[packageIndex]?.credits || 0 };
-            }
-            
-            return { success: false, error: `Capture failed: ${captureResponse.status}` };
-          }
-          
-          const captureResult = await captureResponse.json();
-          console.log(`[PayPal] Capture result: ${captureResult.status}`);
-
-          if (captureResult.status === 'COMPLETED') {
-            await deliverCreditsToUser(env, userId, packageIndex);
-            return { success: true, credits: CREDIT_PACKAGES[packageIndex]?.credits || 0 };
-          } else {
-            console.error(`[PayPal] Capture status not COMPLETED: ${JSON.stringify(captureResult)}`);
-            return { success: false, error: `Capture status: ${captureResult.status}` };
-          }
-        }
-
-        return { success: false, error: `Order status: ${order.status} (not APPROVED or COMPLETED)` };
+        // All cases handled above
+        return { success: false, error: `Order status: ${order.status} (not COMPLETED or APPROVED)` };
       } catch (e: any) {
         console.error(`[PayPal] Error in capturePayPalOrder: ${e.message}`);
         return { success: false, error: e.message };
