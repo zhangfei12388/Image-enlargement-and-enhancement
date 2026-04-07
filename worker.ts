@@ -181,21 +181,23 @@ async function verifyPayPalWebhook(payload: string, headers: Headers, env: Env):
 }
 
 // Deliver credits to user
-async function deliverCreditsToUser(env: Env, userId: string, packageIndex: number): Promise<void> {
+async function deliverCreditsToUser(env: Env, userId: string, packageIndex: number, orderId?: string): Promise<void> {
   const pkg = CREDIT_PACKAGES[packageIndex];
   if (!pkg) {
     console.error('Invalid package index:', packageIndex);
     return;
   }
 
-  // Check if already delivered (prevent duplicate)
-  const existing = await env.DB.prepare(
-    "SELECT * FROM paypal_orders WHERE user_id = ? AND package_index = ? AND status = 'completed'"
-  ).bind(userId, packageIndex).first();
-
-  if (existing) {
-    console.log('Credits already delivered for this order');
-    return;
+  // Check if already delivered for this specific order (prevent duplicate)
+  if (orderId) {
+    const existingOrder = await env.DB.prepare(
+      "SELECT * FROM paypal_orders WHERE order_id = ? AND status = 'completed'"
+    ).bind(orderId).first();
+    
+    if (existingOrder) {
+      console.log('Credits already delivered for order:', orderId);
+      return;
+    }
   }
 
   // Add credits
@@ -274,7 +276,7 @@ export default {
                 `).bind(orderId).run();
 
                 // Deliver credits
-                await deliverCreditsToUser(env, userId, packageIndex);
+                await deliverCreditsToUser(env, userId, packageIndex, orderId);
                 console.log('[Webhook] Credits delivered successfully');
               } else {
                 console.error('[Webhook] Invalid custom_id format, parts.length:', parts.length);
@@ -437,7 +439,7 @@ export default {
               const userId = localOrder.user_id;
               const packageIndex = localOrder.package_index;
               console.log(`[Sandbox] Found local order, delivering credits to ${userId}`);
-              await deliverCreditsToUser(env, userId, packageIndex);
+              await deliverCreditsToUser(env, userId, packageIndex, orderId);
               return { success: true, credits: CREDIT_PACKAGES[packageIndex]?.credits || 0 };
             }
           }
@@ -488,7 +490,7 @@ export default {
             console.log(`[PayPal] Capture result: ${captureResult.status}`);
           }
           
-          await deliverCreditsToUser(env, userId, packageIndex);
+          await deliverCreditsToUser(env, userId, packageIndex, orderId);
           return { success: true, credits: CREDIT_PACKAGES[packageIndex]?.credits || 0 };
         }
 
