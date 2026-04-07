@@ -406,8 +406,7 @@
     ];
     
     let currentUser = null, balance = 3, isUnlimited = false, currentFile = null;
-    let currentPaypalOrderId = null, paymentCheckInterval = null;
-    let pendingPaymentResolved = false;
+    let paymentCheckInterval = null;
 
     function showPage(p) {
       document.getElementById('mainContent').classList.toggle('hidden', p!='home');
@@ -500,14 +499,25 @@
       `).join('');
     }
 
+    let currentOrderId = null; // Track current order ID
+    
     function initPaypalPayment(packageIndex) {
       if (!currentUser) { alert('Please sign in first'); return; }
-      if (pendingPaymentResolved) { pendingPaymentResolved = false; }
+      
+      // Clear any previous payment state
+      clearPaymentState();
       
       const pkg = packages[packageIndex];
       document.getElementById('paymentModal').classList.remove('hidden');
       document.getElementById('paymentStatus').textContent = 'Creating PayPal order...';
       document.getElementById('paymentPackage').textContent = `${pkg.name} - ${pkg.credits} credits for $${pkg.price}`;
+      document.querySelector('#paymentModal .p-6').innerHTML = `
+        <div class="text-center">
+          <div class="spinner mx-auto mb-4" style="width:40px;height:40px;border-width:4px;"></div>
+          <p id="paymentStatus">Creating PayPal order...</p>
+          <p id="paymentPackage" class="text-gray-500 mt-2">${pkg.name} - ${pkg.credits} credits for $${pkg.price}</p>
+        </div>
+      `;
       
       fetch(WORKER_URL + '/api/create-order', {
         method: 'POST',
@@ -518,44 +528,25 @@
       .then(data => {
         if (data.approvalUrl) {
           document.getElementById('paymentStatus').textContent = 'Please complete payment in the popup window...';
-          currentPaypalOrderId = data.orderId;
+          currentOrderId = data.orderId;
           sessionStorage.setItem('pendingPaypalOrder', data.orderId);
           
           // Open PayPal in popup
           const paypalWindow = window.open(data.approvalUrl, 'paypal', 'width=600,height=700,scrollbars=yes');
           
           if (paypalWindow) {
-            // Poll for payment completion every 1 second
-            paymentCheckInterval = setInterval(async () => {
-              try {
-                // Check if popup is closed or we can detect payment completion
-                if (paypalWindow.closed) {
-                  clearInterval(paymentCheckInterval);
-                  paymentCheckInterval = null;
-                  // Wait a moment for PayPal to process
-                  await new Promise(r => setTimeout(r, 1500));
-                  checkOrderStatus(data.orderId);
-                } else {
-                  // Also try to check status periodically even while popup is open
-                  // This catches cases where popup redirects to success page
-                  const res = await fetch(WORKER_URL + '/api/check-order?orderId=' + data.orderId);
-                  const result = await res.json();
-                  if (result.status === 'completed' && !pendingPaymentResolved) {
-                    pendingPaymentResolved = true;
-                    clearInterval(paymentCheckInterval);
-                    paymentCheckInterval = null;
-                    paypalWindow.close();
-                    handlePaymentSuccess(result.credits || pkg.credits);
-                  }
-                }
-              } catch (e) {
-                console.error('Payment check error:', e);
+            // Poll for popup close
+            paymentCheckInterval = setInterval(() => {
+              if (paypalWindow.closed) {
+                clearInterval(paymentCheckInterval);
+                paymentCheckInterval = null;
+                // Wait for PayPal to process
+                setTimeout(() => checkOrderStatus(data.orderId, pkg.credits), 2000);
               }
-            }, 2000);
+            }, 1000);
           } else {
-            // Popup blocked, use redirect fallback
-            document.getElementById('paymentStatus').textContent = 'Popup blocked. Redirecting...';
-            window.location.href = data.approvalUrl;
+            // Popup blocked
+            document.getElementById('paymentStatus').textContent = 'Popup blocked. Please allow popups.';
           }
         } else {
           document.getElementById('paymentStatus').textContent = '❌ Error: ' + (data.error || 'Failed');
@@ -568,12 +559,8 @@
       });
     }
     
-    function handlePaymentSuccess(credits) {
-      document.getElementById('paymentModal').classList.add('hidden');
-      if (paymentCheckInterval) { clearInterval(paymentCheckInterval); paymentCheckInterval = null; }
-      
-      // Clear ALL payment related sessionStorage to prevent re-triggering
-      // Get all keys
+    function clearPaymentState() {
+      // Clear all payment related sessionStorage
       const keysToRemove = [];
       for (let i = 0; i < sessionStorage.length; i++) {
         const key = sessionStorage.key(i);
@@ -582,6 +569,19 @@
         }
       }
       keysToRemove.forEach(key => sessionStorage.removeItem(key));
+      
+      // Clear intervals
+      if (paymentCheckInterval) {
+        clearInterval(paymentCheckInterval);
+        paymentCheckInterval = null;
+      }
+      
+      currentOrderId = null;
+    }
+    
+    function handlePaymentSuccess(credits) {
+      // Clear payment state FIRST
+      clearPaymentState();
       
       // Refresh user data
       loadUserData();
@@ -595,20 +595,24 @@
           <div class="text-6xl mb-4">✅</div>
           <h3 class="text-xl font-bold text-green-600">Payment Successful!</h3>
           <p class="text-gray-600 mt-2">You received <strong>${credits} credits</strong></p>
-          <p class="text-gray-400 text-sm mt-2">Redirecting to home...</p>
+          <button id="successCloseBtn" class="mt-4 px-6 py-2 bg-purple-600 text-white rounded-xl font-medium">Go to Home</button>
         </div>
       `;
       
-      // Auto close modal and go to home after 2 seconds
+      document.getElementById('successCloseBtn').addEventListener('click', () => {
+        closePaymentModal();
+        showPage('home');
+      });
+      
+      // Also auto redirect after 3 seconds
       setTimeout(() => {
         closePaymentModal();
         showPage('home');
-      }, 2000);
+      }, 3000);
     }
 
-    async function checkOrderStatus(orderId) {
+    async function checkOrderStatus(orderId, defaultCredits) {
       if (!orderId) return;
-      if (pendingPaymentResolved) return;
       
       try {
         const res = await fetch(WORKER_URL + '/api/check-order?orderId=' + orderId);
@@ -616,48 +620,49 @@
         console.log('Order status:', data);
         
         if (data.status === 'completed') {
-          pendingPaymentResolved = true;
-          // Mark this order as handled to prevent repeated processing
-          sessionStorage.setItem('paymentHandled_' + orderId, 'true');
-          sessionStorage.removeItem('pendingPaypalOrder');
-          handlePaymentSuccess(data.credits || 0);
+          handlePaymentSuccess(data.credits || defaultCredits || 0);
         } else {
-          // Order not completed - show appropriate message
-          let msg = 'Payment not completed yet.';
-          if (data.error) {
-            if (data.error.includes('not approved')) {
-              msg = 'Payment was not approved. Please try again.';
-            } else {
-              msg = 'Payment status: ' + data.error;
-            }
-          }
-          
-          // Update modal with status
+          // Order not completed
           const modal = document.getElementById('paymentModal');
           modal.classList.remove('hidden');
           modal.querySelector('.p-6').innerHTML = `
             <div class="text-center">
               <div class="text-6xl mb-4">⚠️</div>
               <h3 class="text-xl font-bold text-amber-600">Payment Not Completed</h3>
-              <p class="text-gray-600 mt-2">${msg}</p>
-              <div class="mt-4">
-                <button id="checkAgainBtn" class="px-4 py-2 bg-purple-600 text-white rounded-xl font-medium mr-2">Try Again</button>
-                <button id="closeModalBtn" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-xl font-medium">Close</button>
+              <p class="text-gray-600 mt-2">${data.error || 'Payment was not completed'}</p>
+              <div class="mt-4 flex gap-2 justify-center">
+                <button id="checkAgainBtn" class="px-4 py-2 bg-purple-600 text-white rounded-xl font-medium">Try Again</button>
+                <button id="cancelPaymentBtn" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-xl font-medium">Cancel</button>
               </div>
             </div>
           `;
-          // Attach events after innerHTML - reset pendingPaymentResolved for retry
+          
           document.getElementById('checkAgainBtn').addEventListener('click', () => {
-            pendingPaymentResolved = false;
-            checkOrderStatus(orderId);
+            checkOrderStatus(orderId, defaultCredits);
           });
-          document.getElementById('closeModalBtn').addEventListener('click', closePaymentModal);
+          
+          document.getElementById('cancelPaymentBtn').addEventListener('click', () => {
+            clearPaymentState();
+            closePaymentModal();
+            showPage('pricing');
+          });
         }
       } catch (e) {
         console.error('Check order error:', e);
-        document.getElementById('paymentStatus').textContent = '❌ Connection error checking payment';
+        const modal = document.getElementById('paymentModal');
+        modal.classList.remove('hidden');
+        modal.querySelector('.p-6').innerHTML = `
+          <div class="text-center">
+            <div class="text-6xl mb-4">❌</div>
+            <h3 class="text-xl font-bold text-red-600">Connection Error</h3>
+            <p class="text-gray-600 mt-2">Could not check payment status</p>
+            <button id="retryBtn" class="mt-4 px-4 py-2 bg-purple-600 text-white rounded-xl font-medium">Retry</button>
+          </div>
+        `;
+        document.getElementById('retryBtn').addEventListener('click', () => {
+          checkOrderStatus(orderId, defaultCredits);
+        });
       }
-      currentPaypalOrderId = null;
     }
 
     function handleSubscription(plan) {
@@ -676,18 +681,8 @@
         recordLogin(user);
         loadUserData();
         
-        // Check for pending payment only once
-        const pendingOrder = sessionStorage.getItem('pendingPaypalOrder');
-        const isAlreadyHandled = pendingOrder && sessionStorage.getItem('paymentHandled_' + pendingOrder);
-        
-        if (pendingOrder && !isAlreadyHandled) {
-          // Not yet handled, check status
-          setTimeout(() => checkOrderStatus(pendingOrder), 1000);
-        } else if (pendingOrder && isAlreadyHandled) {
-          // Already handled, clear sessionStorage
-          sessionStorage.removeItem('pendingPaypalOrder');
-          sessionStorage.removeItem('paymentHandled_' + pendingOrder);
-        }
+        // Clear any stale pending orders on login
+        clearPaymentState();
       } else {
         currentUser = null;
         document.getElementById('loginOverlay').classList.remove('hidden');
